@@ -1,0 +1,9 @@
+Discussion of relevant statistical parameters doing feature enginnering and for selecting features.
+
+Pearson's correlation: is a parameter that descibes the overall linear relationship between 2 variables. 0 means no corr, +1 means total pos corr and -1 means total neg corr. If two var are non-linear corr the Pearson's corr will not reflect the overall relationship
+
+Spearman rank correlation: For non-parametic (or non-conventional distribution) we use in stead the Spearman Rank corr, which will reflect non-linear relationship
+
+Mutual Information: this is an entropy-based parameter used to indicate whether 2 variables depends on each other. Used for non-linear relationships.
+
+f_regression: is used for decisions of adding extra parameters for a correlation. The goal of the F-test is to provide significance level. If you want to make sure the features your are including are significant with respect to your p-value, you use an F-test. If you just want to include the k best features, you can use the correlation only. 
