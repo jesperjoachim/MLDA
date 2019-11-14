@@ -3,17 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 
-# import seaborn as sns
-# import statsmodels.api as sm
-# import logging.config
-
-
-# from mpl_toolkits.mplot3d import axes3d
-# from sklearn import preprocessing
-# from sklearn.feature_selection import f_regression, mutual_info_regression
-# from scipy import stats
-# from statsmodels.formula.api import ols
-
 from MLDA.corr_stats import stat_functions as sf
 
 from MLDA.corr_stats import stat_helperfunc as shf
@@ -33,13 +22,6 @@ def removeNan(serie1, serie2):
     df = pd.concat([serie1, serie2], axis=1)
     df_drop = df.dropna()
     return df_drop.iloc[:, 0], df_drop.iloc[:, 1]
-
-
-def checkAllRowsCatOrNum(serie, choose_type="cat"):
-    """Description..
-    Input: Pandas series and type to check, string (cat or num). 
-    Output: ..."""
-    pass
 
 
 def corrType(type1, type2):
@@ -132,3 +114,58 @@ def correlation(
             corr_matrix.iloc[j][i] = corr_values[1]
     return corr_matrix
 
+
+def checkdtypeOfColumns(catcols, numcols, df):
+    """Description..
+    Input: .
+    Output: ..."""
+    if str((catcols + numcols)[0]).isnumeric():
+        # pandas syntax when catcols/numcols is entered as integers
+        out = f"dtype of categorical columns: {catcols} and numerical columns {numcols} are ok"
+        for entry in catcols:
+            if df.iloc[:, entry].dtype.name != "category":
+                out = f"The column '{entry}' is NOT category"
+                return out
+        for entry in numcols:
+            if not (
+                df.iloc[:, entry].dtype.name == "float64"
+                or df.iloc[:, entry].dtype.name == "int64"
+            ):
+                out = f"The column '{entry}' is NOT float64/int64"
+                return out
+        return out
+    else:
+        # pandas syntax when catcols/numcols is entered as column names
+        out = f"dtype of categorical columns: {catcols} and numerical columns {numcols} are ok"
+        for entry in catcols:
+            if df[entry].dtype.name != "category":
+                out = f"The column '{entry}' is NOT category"
+                return out
+        for entry in numcols:
+            if not (
+                df[entry].dtype.name == "float64" or df[entry].dtype.name == "int64"
+            ):
+                out = f"The column '{entry}' is NOT float64/int64"
+                return out
+        return out
+
+
+# testing value 1 of a list with 2 values
+tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
+serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
+result = corrValue(serie1, serie2, ["Asym"])
+print(result)
+# self.assertAlmostEqual(0.019759842721107736, result[0], places=4)
+
+
+# df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
+# print(df_test)
+
+# catcols = ["global_warm_risk", "intimacy", "gender", "group", "num_police"]
+# numcols = ["X1", "weight", "X3", "Y1"]
+# for entry in catcols:
+#     df_test[entry] = df_test[entry].astype("category")
+# df_test.info()
+# # print((df_test["gender"].dtype.name) == "category")
+
+# print(checkdtypeOfColumns(catcols, numcols, df_test))

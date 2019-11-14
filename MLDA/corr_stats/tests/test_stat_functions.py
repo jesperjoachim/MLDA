@@ -86,6 +86,7 @@ input = pd.read_excel(
 # Testing calcMeanAndStdDev(method, serie1, serie2)
 def test_calcMeanAndStdDev_with_Asym_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender():
     # Setup
+    np.random.seed(0)
     desired1, desired2 = 0.0008694019885874294, 0.00045475323268101103
 
     # Exercise
@@ -101,6 +102,7 @@ def test_calcMeanAndStdDev_with_Asym_returns_MeancorrVal_and_stdcorrVal_from_dft
 # Testing calcMeanAndStdDev(method, serie1, serie2)
 def test_calcMeanAndStdDev_with_MIcat_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender():
     # Setup
+    np.random.seed(0)
     desired1, desired2 = 0.00027228204089949635, 0.0002287275600370245
 
     # Exercise
@@ -116,6 +118,7 @@ def test_calcMeanAndStdDev_with_MIcat_returns_MeancorrVal_and_stdcorrVal_from_df
 # Testing evalSignificance(method, serie1, serie2, CI=0.1, std_val=1.5)
 def test_evalSignificance_with_Asym_returns_corrVal_from_dftest_globalwarmrisk_gender():
     # Setup
+    np.random.seed(0)
     desired = 0.006285953589698483
 
     # Exercise
@@ -129,11 +132,12 @@ def test_evalSignificance_with_Asym_returns_corrVal_from_dftest_globalwarmrisk_g
 # Testing evalSignificance(method, serie1, serie2, CI=0.1, std_val=1.5)
 def test_evalSignificance_with_MI_num_returns_corrVal_from_dftest_globalwarmrisk_gender():
     # Setup
-    desired = 0.006285953589698483
+    np.random.seed(0)
+    desired = 0.0018411497470424143
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("MI_num", serie1, serie2, std_val=1.5)
+    actual = evalSignificance("MI_cat", serie1, serie2, std_val=1.5)
 
     # Verify
     npt.assert_almost_equal(actual, desired, decimal=4)
@@ -142,24 +146,26 @@ def test_evalSignificance_with_MI_num_returns_corrVal_from_dftest_globalwarmrisk
 # Testing evalSignificance(method, serie1, serie2, CI=0.1, std_val=5)
 def test_evalSignificance_with_Asym_returns_Corr_is_Insignificant_from_dftest_globalwarmrisk_gender():
     # Setup
+    np.random.seed(0)
     desired = "Corr is Insignificant"
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("Asym", serie1, serie2, std_val=10)
+    actual = evalSignificance("Asym", serie1, serie2, std_val=30)
 
     # Verify
     assert actual == desired
 
 
 # Testing evalSignificance(method, serie1, serie2, CI=0.1, std_val=5)
-def test_evalSignificance_with_MInum_returns_Corr_is_Insignificant_from_dftest_globalwarmrisk_gender():
+def test_evalSignificance_with_MIcat_returns_Corr_is_Insignificant_from_dftest_globalwarmrisk_gender():
     # Setup
+    np.random.seed(0)
     desired = "Corr is Insignificant"
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("MI_num", serie1, serie2, std_val=10)
+    actual = evalSignificance("MI_cat", serie1, serie2, std_val=30)
 
     # Verify
     assert actual == desired
@@ -191,6 +197,7 @@ def test_evalSignificance_with_spearmann_returns_NO_corrVal_from_dftest_X1_weigh
 
 def test_evalSignificance_with_CramersV_returns_corrVal_from_input_globwarmrisk():
     # Setup
+    np.random.seed(0)
     desired = 0.092582202
 
     # Exercise
@@ -204,6 +211,7 @@ def test_evalSignificance_with_CramersV_returns_corrVal_from_input_globwarmrisk(
 
 def test_evalSignificance_with_CramersV_NOT_returns_corrVal_from_input_globwarmrisk():
     # Setup
+    np.random.seed(0)
     desired = "p-value > CI"
 
     # Exercise
