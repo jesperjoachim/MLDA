@@ -18,6 +18,41 @@ def zero_replace(array):
     return array
 
 
+def checkdtypeOfColumns(catcols, numcols, df):
+    """Function to check that columns are of the correct dtype - categorical data/columns should be 'category', numerical should be float64 or int64.
+    Input: categorical and numerical columns as names (syntax: 'df[entry]') or integers (syntax: 'df.iloc[:, entry]'), df: pandas dataframe
+    Output: 'ok' or 'which FIRST column is wrong'"""
+    if str((catcols + numcols)[0]).isnumeric():
+        # pandas syntax when catcols/numcols is entered as integers
+        out = f"dtype of categorical columns: {catcols} and numerical columns {numcols} are ok"
+        for entry in catcols:
+            if df.iloc[:, entry].dtype.name != "category":
+                out = f"The column '{entry}' is NOT category"
+                return out
+        for entry in numcols:
+            if not (
+                df.iloc[:, entry].dtype.name == "float64"
+                or df.iloc[:, entry].dtype.name == "int64"
+            ):
+                out = f"The column '{entry}' is NOT float64/int64"
+                return out
+        return out
+    else:
+        # pandas syntax when catcols/numcols is entered as column names
+        out = f"dtype of categorical columns: {catcols} and numerical columns {numcols} are ok"
+        for entry in catcols:
+            if df[entry].dtype.name != "category":
+                out = f"The column '{entry}' is NOT category"
+                return out
+        for entry in numcols:
+            if not (
+                df[entry].dtype.name == "float64" or df[entry].dtype.name == "int64"
+            ):
+                out = f"The column '{entry}' is NOT float64/int64"
+                return out
+        return out
+
+
 def removeNan(serie1, serie2):
     df = pd.concat([serie1, serie2], axis=1)
     df_drop = df.dropna()
@@ -88,9 +123,10 @@ def correlation(
     dataset,
     catcols,
     numcols,
-    method_cc=["Asym"],
+    method_cc=["Cramer_V"],
     method_cn=["Omega"],
     method_nn=["Spear", "Pear"],
+    output="corr_value",
 ):
     """Returns association strength matrix of any combination between numerical and categorical variables"""
     # Rearrange dataset so categoric columns are to the right
@@ -115,57 +151,15 @@ def correlation(
     return corr_matrix
 
 
-def checkdtypeOfColumns(catcols, numcols, df):
-    """Description..
-    Input: .
-    Output: ..."""
-    if str((catcols + numcols)[0]).isnumeric():
-        # pandas syntax when catcols/numcols is entered as integers
-        out = f"dtype of categorical columns: {catcols} and numerical columns {numcols} are ok"
-        for entry in catcols:
-            if df.iloc[:, entry].dtype.name != "category":
-                out = f"The column '{entry}' is NOT category"
-                return out
-        for entry in numcols:
-            if not (
-                df.iloc[:, entry].dtype.name == "float64"
-                or df.iloc[:, entry].dtype.name == "int64"
-            ):
-                out = f"The column '{entry}' is NOT float64/int64"
-                return out
-        return out
-    else:
-        # pandas syntax when catcols/numcols is entered as column names
-        out = f"dtype of categorical columns: {catcols} and numerical columns {numcols} are ok"
-        for entry in catcols:
-            if df[entry].dtype.name != "category":
-                out = f"The column '{entry}' is NOT category"
-                return out
-        for entry in numcols:
-            if not (
-                df[entry].dtype.name == "float64" or df[entry].dtype.name == "int64"
-            ):
-                out = f"The column '{entry}' is NOT float64/int64"
-                return out
-        return out
+df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
 
+#
+# ,
+catcols = ["global_warm_risk", "gender", "intimacy", "group", "num_police"]
+numcols = ["weight", "X3", "Y1"]
+for entry in catcols:
+    df_test[entry] = df_test[entry].astype("category")
 
-# testing value 1 of a list with 2 values
-tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
-serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
-result = corrValue(serie1, serie2, ["Asym"])
-print(result)
-# self.assertAlmostEqual(0.019759842721107736, result[0], places=4)
+print(checkdtypeOfColumns(catcols, numcols, df_test))
+print(correlation(df_test, catcols, numcols, method_cc=["Cramer_V"]))
 
-
-# df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
-# print(df_test)
-
-# catcols = ["global_warm_risk", "intimacy", "gender", "group", "num_police"]
-# numcols = ["X1", "weight", "X3", "Y1"]
-# for entry in catcols:
-#     df_test[entry] = df_test[entry].astype("category")
-# df_test.info()
-# # print((df_test["gender"].dtype.name) == "category")
-
-# print(checkdtypeOfColumns(catcols, numcols, df_test))

@@ -11,6 +11,7 @@ class TestStatFunctions(unittest.TestCase):
         self.assertAlmostEqual(0.1458643, result, places=4)
 
     def test_cramers_v_correct_pValue(self):
+        """p-value (0.0002269) is taken from https://bookdown.org/ripberjt/qrmbook/association-of-variables.html - 6 Association of Variables"""
         input = pd.read_excel(
             "/home/jesper/Work/MLDA_app/MLDA/input_data/globalwarm_risks1to5_women_men.xlsx"
         )
@@ -83,6 +84,19 @@ input = pd.read_excel(
     "/home/jesper/Work/MLDA_app/MLDA/input_data/globalwarm_risks1to5_women_men.xlsx"
 )
 
+
+def test_cramersV_out_is_zero_when_crosstab_dim_is_below_2x2_for_testing_purpose_only():
+    # Setup
+    desired = (np.nan, np.nan)
+
+    # Exercise
+    serie1, serie2 = df_test["global_warm_risk"], df_test["intimacy"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = cramers_v(serie1, serie2)
+    # Verify
+    npt.assert_almost_equal(actual, desired, decimal=4)
+
+
 # Testing calcMeanAndStdDev(method, serie1, serie2)
 def test_calcMeanAndStdDev_with_Asym_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender():
     # Setup
@@ -123,7 +137,7 @@ def test_evalSignificance_with_Asym_returns_corrVal_from_dftest_globalwarmrisk_g
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("Asym", serie1, serie2, std_val=1.5)
+    actual = evalSignificance("Asym", serie1, serie2)
 
     # Verify
     npt.assert_almost_equal(actual, desired, decimal=4)
@@ -137,7 +151,7 @@ def test_evalSignificance_with_MI_num_returns_corrVal_from_dftest_globalwarmrisk
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("MI_cat", serie1, serie2, std_val=1.5)
+    actual = evalSignificance("MI_cat", serie1, serie2)
 
     # Verify
     npt.assert_almost_equal(actual, desired, decimal=4)
@@ -151,7 +165,7 @@ def test_evalSignificance_with_Asym_returns_Corr_is_Insignificant_from_dftest_gl
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("Asym", serie1, serie2, std_val=30)
+    actual = evalSignificance("Asym", serie1, serie2, CI=0.01)
 
     # Verify
     assert actual == desired
@@ -165,7 +179,7 @@ def test_evalSignificance_with_MIcat_returns_Corr_is_Insignificant_from_dftest_g
 
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-    actual = evalSignificance("MI_cat", serie1, serie2, std_val=30)
+    actual = evalSignificance("MI_cat", serie1, serie2, CI=0.01)
 
     # Verify
     assert actual == desired

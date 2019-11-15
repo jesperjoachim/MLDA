@@ -26,11 +26,15 @@ data = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
 # num = ["hey"]
 # print(str((cat + num)[0]).isnumeric())
 
-catcol = [0, 1]
-numcol = [5, 6]
+# catcol = [0, 1]
+# numcol = [5, 6]
 
-for entry in catcol:
-    # print(data.iloc[:, entry])
-    print(data.iloc[:, entry].dtype.name)
-    data.iloc[:, entry] = data.iloc[:, entry].astype("category")
-    print(data.iloc[:, entry].dtype.name)
+# for entry in catcol:
+#     # print(data.iloc[:, entry])
+#     print(data.iloc[:, entry].dtype.name)
+#     data.iloc[:, entry] = data.iloc[:, entry].astype("category")
+#     print(data.iloc[:, entry].dtype.name)
+
+x = 13
+
+print(isinstance(x, float) or isinstance(x, int))

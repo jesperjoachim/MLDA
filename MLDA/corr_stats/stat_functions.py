@@ -29,7 +29,8 @@ def rescaling(serie):
 
 
 def cramers_v(x, y):
-    """Effect size by Cramer's V. Formula: Cramer's V = Chi_sq/(n * (r_k_min - 1)), where n=.....
+    """Effect size by Cramer's V. Formula: Cramer's V = Chi_sq/(n * (r_k_min - 1)), where r_k_min=min of the r-k dimension of the confusion_matrix, r=num_rows ,
+    k=num_columns, n=grand total of observations
     Input: Two pandas series. 
     Output: tuple with: Cramer's V (scalar/float) and p-value (scalar/float)"""
     type_xinput, type_yinput = type(x), type(y)  # Uncomment while debugging
@@ -40,8 +41,12 @@ def cramers_v(x, y):
     r_k_min = min(r, k)
     nominator = chi_sq[0]
     denominator = n * (r_k_min - 1)
-    cramer_v = (chi_sq[0] / (n * (r_k_min - 1))) ** 0.5
-    out = cramer_v, chi_sq[1]  # cramer's V and p-value
+    # The if clause below is only for testing purpose
+    if denominator==0:
+        out = (np.nan, np.nan)
+    else:
+        cramer_v = (chi_sq[0] / (n * (r_k_min - 1))) ** 0.5
+        out = cramer_v, chi_sq[1]  # out: cramer's V and p-value (tuple)
     type_out = type(out)  # Uncomment while debugging
     return out
 
@@ -57,12 +62,16 @@ def cramers_v_corr(x, y):
     r, k = confusion_matrix.shape
     chi_sq_corr = chi_sq[0] / n - (k - 1) * (r - 1) / (n - 1)
     chi_sq_corr = max(0, chi_sq_corr)
-    print(n, r, k, chi_sq[0], chi_sq_corr)
     k_corr = k - ((k - 1) ** 2) / (n - 1)
     r_corr = r - ((r - 1) ** 2) / (n - 1)
     r_k_corr_min = min(r_corr, k_corr)
-    cramer_v_corr = (chi_sq_corr / (r_k_corr_min - 1)) ** 0.5
-    out = cramer_v_corr, chi_sq[1]  # cramer's V corrected and p-value
+    # The if clause below is only for testing purpose
+    denominator=(r_k_corr_min - 1)
+    if denominator==0:
+        out = (np.nan, np.nan)
+    else:
+        cramer_v_corr = (chi_sq_corr / (r_k_corr_min - 1)) ** 0.5
+        out = cramer_v_corr, chi_sq[1]  # cramer's V corrected and p-value
     type_out = type(out)  # Uncomment while debugging
     return out
 
@@ -183,6 +192,9 @@ def omega_ols(x, y):
     Output: tuple with: Omega (scalar/float) and p-value (scalar/float)
     NOTE x: MUST BE CATEGORICAL, y: MUST BE NUMERICAL"""
     type_xinput, type_yinput = type(x), type(y)  # Uncomment while debugging
+    DFB = len(pd.unique(x)) - 1
+    if DFB <= 0:
+        return (np.nan, np.nan)
     data = pd.concat([x, y], axis=1)
     x_name, y_name = x.name, y.name
     func_arg = y_name + "~C(" + x_name + ")"  # make string-input to ols below
@@ -236,6 +248,10 @@ def returnListOfMethods(key):
     dict_with_methods = {"with_pvalue": with_pvalue, "no_pvalue": no_pvalue}
     return dict_with_methods[key]
 
+def mimicPvalueCalc(serie1, serie2, method):
+    corr_val = function_dict[method](serie1, serie2)[0]
+    mean_and_std = calcMeanAndStdDev(method, serie1, serie2)
+    p_value = mean_and_std[1]/(corr_val-mean_and_std[0])
 
 def calcMeanAndStdDev(method, serie1, serie2):
     """Input is a pandas serie. Calc mean and std of the correlation value based on 5 corr value estimations"""
@@ -258,19 +274,23 @@ def calcMeanAndStdDev(method, serie1, serie2):
     return out
 
 
-def evalSignificance(method, serie1, serie2, CI=0.1, std_val=1.5):
+def evalSignificance(method, serie1, serie2, CI=0.1):
     """Evaluates significance based on the argument values (p_val and std_val).
     Calc is based on p-value if they exist for the method used, else a value based on mean and std for shuffled corr-values is used.
     Input: method=choose string_name from function_dict, serie1/2=pandas series
     Output: corr_value (scalar/float) and p-value (scalar/float)"""
 
     corr_values = function_dict[method](serie1, serie2) # tuple
+    
+    # If non-p-value based method
     if method in returnListOfMethods("no_pvalue"):
         mean_and_std = calcMeanAndStdDev(method, serie1, serie2)
-        if corr_values[0] > (mean_and_std[0] + mean_and_std[1] * std_val):
+        if corr_values[0] > (mean_and_std[0] + mean_and_std[1] * (1/CI)):
             return corr_values[0]
         else:
             return "Corr is Insignificant"
+
+    # If p-value based method
     elif method in returnListOfMethods("with_pvalue"):
         pvalue = corr_values[1]
         if pvalue < CI:
@@ -279,13 +299,13 @@ def evalSignificance(method, serie1, serie2, CI=0.1, std_val=1.5):
             return "p-value > CI"
 
 
-df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
-serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
+# df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
+# serie1, serie2 = df_test["global_warm_risk"], df_test["weight"]
 # serie1, serie2 = removeNan(df_test["X3"], df_test["Y1"])
 # print(calcMeanAndStdDev("MI_cat", serie1, serie2))
 # print(MI_num(serie1, serie2))
 # print(evalSignificance("MI_num", serie1, serie2, std_val=15))
-
+# print(pd.crosstab(serie1, serie2))
 
 # # print(evalSignificance("Spearmann", df_test["X1"], df_test["Y1"]))
 # print(df_test)
@@ -293,14 +313,13 @@ serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
 
 # print(spearmann(serie1, serie2))
 
-# print(df_test)
 # serie1, serie2 = df_test["X1"], df_test["X3"]
 # serie1, serie2 = df_test["intimacy"], df_test["num_police"]
 
 # serie1, serie2 = removeNan(serie1, serie2)
 # print(calcMeanAndStd("Asym", serie1, serie2))
 # print(evalSignificance("Asym", serie1, serie2, CI=0.1))
-# print(cramers_v(serie1, serie2))
+# print(omega_ols(serie1, serie2))
 # print(type(serie1.to_numpy()))
 # serie2_name = serie2.name
 # serie2 = serie2.to_numpy()
@@ -308,12 +327,12 @@ serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
 # print(serie1.name, serie2.name)
 # print(omega_ols(serie1, serie2))
 # Setup
-desired = 0.006285953589698483
-# Exercise
-np.random.seed(0)
-desired = "Corr is Insignificant"
+# desired = 0.006285953589698483
+# # Exercise
+# np.random.seed(0)
+# desired = "Corr is Insignificant"
 
-# Exercise
-serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-actual = evalSignificance("MI_cat", serie1, serie2, std_val=10)
-print(actual)
+# # Exercise
+# serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
+# actual = evalSignificance("MI_cat", serie1, serie2, std_val=10)
+# print(actual)

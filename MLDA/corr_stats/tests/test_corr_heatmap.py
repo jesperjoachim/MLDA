@@ -19,6 +19,10 @@ from MLDA.corr_stats.corr_heatmap import (
 
 
 class TestFunctions(unittest.TestCase):
+    def test0_corrType_out_is_string(self):
+        result = corrType("cat", "cat")
+        self.assertEqual(type("catcat"), type(result))
+
     def test1_corrType(self):
         result = corrType("cat", "cat")
         self.assertEqual("catcat", result)
@@ -30,6 +34,15 @@ class TestFunctions(unittest.TestCase):
     def test3_corrType(self):
         result = corrType("num", "num")
         self.assertEqual("numnum", result)
+
+    def test0_corrMethodsExecute_output_is_list(self):
+        result = corrMethodsExecute(
+            "catcat",
+            method_cc=["Asym"],
+            method_cn=["Omega_ols"],
+            method_nn=["Spear", "Pear", "MI_num"],
+        )
+        self.assertEqual("list", type(result).__name__)
 
     def test1_corrMethodsExecute(self):
         result = corrMethodsExecute(
@@ -58,6 +71,15 @@ class TestFunctions(unittest.TestCase):
         )
         self.assertEqual(["Spear", "Pear", "MI_num"], result)
 
+    def test0_corrValue_output_is_list_with_double_tuple(self):
+        # testing value 1 of a list with 2 values
+        tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
+        serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
+        result = corrValue(serie1, serie2, ["Asym"])
+        self.assertEqual("list", type(result).__name__)
+        self.assertEqual("tuple", type(result[0]).__name__)
+        self.assertEqual("tuple", type(result[1]).__name__)
+
     def test1_corrValue(self):
         # testing value 1 of a list with 2 values
         tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
@@ -74,6 +96,33 @@ class TestFunctions(unittest.TestCase):
 
 
 class TestFindCorrFunctions(unittest.TestCase):
+    def test0_findCorr_output_is_numeric(self):
+        # testing 2 cat series
+        fifa = shf.spacesToUnderscore(
+            pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
+        )
+        catcol = [
+            "Name",
+            "Club",
+            "Nationality",
+            "Preferred_Foot",
+            "Position",
+            "Body_Type",
+        ]
+        numcol = []
+        serie1, serie2 = fifa["Preferred_Foot"], fifa["Position"]
+        result = findCorr(
+            serie1,
+            serie2,
+            catcol,
+            method_cc=["Asym"],
+            method_cn=["Omega_ols"],
+            method_nn=["Spear", "Pear", "MI_num"],
+        )
+        self.assertEqual(
+            True, isinstance(result[1][0], float) or isinstance(result[1][0], int)
+        )
+
     def test1_findCorr(self):
         # testing 2 cat series
         fifa = shf.spacesToUnderscore(
