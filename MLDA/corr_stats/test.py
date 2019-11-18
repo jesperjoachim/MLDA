@@ -35,6 +35,15 @@ data = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
 #     data.iloc[:, entry] = data.iloc[:, entry].astype("category")
 #     print(data.iloc[:, entry].dtype.name)
 
-x = 13
+# x = 13
 
-print(isinstance(x, float) or isinstance(x, int))
+# print(isinstance(x, float) or isinstance(x, int))
+
+
+def multiply(x, y):
+    return x * y
+
+
+values = multiply(3, 4), multiply(4, 5)
+values = values, values
+print(values)

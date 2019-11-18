@@ -1,8 +1,8 @@
 import unittest
+import pytest
 import numpy.testing as npt
 
 from MLDA.corr_stats.stat_functions import *
-
 
 class TestStatFunctions(unittest.TestCase):
     def test_cramers_v_correct_cramers_v_value(self):
@@ -20,12 +20,12 @@ class TestStatFunctions(unittest.TestCase):
 
     def test1_u_y(self):
         tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
-        result = u_y(tab1_input["num_police"], tab1_input["intimacy"])[0]
+        result = u_y(tab1_input["num_police"], tab1_input["intimacy"])
         self.assertAlmostEqual(0.01975984, result, places=4)
 
     def test2_u_y(self):
         tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
-        result = u_y(tab1_input["intimacy"], tab1_input["num_police"])[0]
+        result = u_y(tab1_input["intimacy"], tab1_input["num_police"])
         self.assertAlmostEqual(0.00655273, result, places=4)
 
     def test_MI_cat(self):
@@ -106,7 +106,7 @@ def test_calcMeanAndStdDev_with_Asym_returns_MeancorrVal_and_stdcorrVal_from_dft
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
     serie1, serie2 = removeNan(serie1, serie2)
-    actual = calcMeanAndStdDev("Asym", serie1, serie2)
+    actual = calcMeanAndStdDev(serie1, serie2, "Asym")
 
     # Verify
     npt.assert_almost_equal(actual[0], desired1, decimal=4)
@@ -122,7 +122,7 @@ def test_calcMeanAndStdDev_with_MIcat_returns_MeancorrVal_and_stdcorrVal_from_df
     # Exercise
     serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
     serie1, serie2 = removeNan(serie1, serie2)
-    actual = calcMeanAndStdDev("MI_cat", serie1, serie2)
+    actual = calcMeanAndStdDev(serie1, serie2, "MI_cat")
 
     # Verify
     npt.assert_almost_equal(actual[0], desired1, decimal=4)
@@ -235,3 +235,126 @@ def test_evalSignificance_with_CramersV_NOT_returns_corrVal_from_input_globwarmr
 
     # Verify
     assert actual == desired
+
+
+# Testing calcCorrNonP(serie1, serie2, method)
+def test_calcCorrNonP_returns_two_value_tuple_when_method_is_asym():
+    # Setup
+    desired1 = "tuple"
+    desired2 = 2
+    desired3 = "float64"
+
+    # Exercise
+    actual = calcCorrNonP(df_test["global_warm_risk"], df_test["gender"], "Asym")
+
+    # Verify
+    assert type(actual).__name__ == desired1
+    assert len(actual) == desired2
+    assert type(actual[0]).__name__ == desired3
+
+
+# Testing mimicPvalueCalc(mean_and_stdev, corr_value)
+def test_mimicPvalueCalc_returns_singlevalue_float64():
+    # Setup
+    desired1 = "float"
+    desired2 = 0.1
+
+    # Exercise
+    actual = mimicPvalueCalc((0.2, 0.1), 1.2)
+
+    # Verify
+    assert type(actual).__name__ == desired1
+    assert actual == desired2
+
+
+# Testing calcCorrAndMimicP(serie1, serie2, method)
+def test_calcCorrAndMimicP_returns_double_two_different_value_tuple_from_asym():
+    # Setup
+    desired1 = "tuple"
+    desired2 = (
+        (0.006285953589698483, 0.0831586187714002),
+        (0.002752174685457338, 0.09891357783364078),
+    )
+
+    # Exercise
+    serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
+    actual = calcCorrAndMimicP(serie1, serie2, "Asym")
+
+    # Verify
+    assert type(actual).__name__ == desired1
+    assert type(actual[0]).__name__ == desired1
+    npt.assert_almost_equal(actual, desired2, decimal=4)
+
+
+def test_calcCorrAndMimicP_returns_double_two_same_value_tuple_from_sym():
+    # Setup
+    desired1 = "tuple"
+    desired2 = (
+        (0.0018411497470424143, 0.0831586187714002),
+        (0.0018411497470424143, 0.0831586187714002),
+    )
+
+    # Exercise
+    serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
+    actual = calcCorrAndMimicP(serie1, serie2, "MI_cat")
+
+    # Verify
+    assert type(actual).__name__ == desired1
+    assert type(actual[0]).__name__ == desired1
+    npt.assert_almost_equal(actual, desired2, decimal=4)
+
+
+
+"""Dataset used for test"""
+
+@pytest.fixture()
+def dfForTest():
+    df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
+    return df_test
+
+"""END Dataset used for test"""
+
+
+"""Testing calcCorrAndP"""
+
+def test_calcCorrAndP_returns_correct_datatype_and_values_numnum(dfForTest):
+    # Setup
+    desired1 = 2  # length of array
+    desired2 = (0.6221347, 1.771230e-83)
+    # Exercise
+    serie1, serie2 = dfForTest["X1"], dfForTest["Y1"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = calcCorrAndP(serie1, serie2, "Spear")
+
+    # Verify
+    assert len(actual)== desired1
+    npt.assert_array_almost_equal(actual, desired2)
+
+def test_calcCorrAndP_returns_correct_datatype_and_values_catcat(dfForTest):
+    # Setup
+    desired1 = 2  # length of array
+    desired2 = (0.145864, 0.893955)
+    # Exercise
+    serie1, serie2 = dfForTest["intimacy"], dfForTest["num_police"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = calcCorrAndP(serie1, serie2, "Cramer_V")
+
+    # Verify
+    assert len(actual)== desired1
+    npt.assert_array_almost_equal(actual, desired2)
+
+
+def test_calcCorrAndP_returns_correct_datatype_and_values_catnum(dfForTest):
+    # Setup
+    desired1 = 2  # length of array
+    desired2 = (0.451751, 0.01591)
+    # Exercise
+    serie1, serie2 = dfForTest["group"], dfForTest["weight"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = calcCorrAndP(serie1, serie2, "Omega")
+
+    # Verify
+    assert len(actual)== desired1
+    npt.assert_array_almost_equal(actual, desired2)
+
+"""END Testing calcCorrAndP"""

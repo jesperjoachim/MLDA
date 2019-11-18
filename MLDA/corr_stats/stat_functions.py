@@ -42,7 +42,7 @@ def cramers_v(x, y):
     nominator = chi_sq[0]
     denominator = n * (r_k_min - 1)
     # The if clause below is only for testing purpose
-    if denominator==0:
+    if denominator == 0:
         out = (np.nan, np.nan)
     else:
         cramer_v = (chi_sq[0] / (n * (r_k_min - 1))) ** 0.5
@@ -66,8 +66,8 @@ def cramers_v_corr(x, y):
     r_corr = r - ((r - 1) ** 2) / (n - 1)
     r_k_corr_min = min(r_corr, k_corr)
     # The if clause below is only for testing purpose
-    denominator=(r_k_corr_min - 1)
-    if denominator==0:
+    denominator = r_k_corr_min - 1
+    if denominator == 0:
         out = (np.nan, np.nan)
     else:
         cramer_v_corr = (chi_sq_corr / (r_k_corr_min - 1)) ** 0.5
@@ -120,14 +120,14 @@ def u_y(y, x):
     """Approved
     Part 3a of 3 - Uncertainty coefficient (asymmetric)
     Input: Two pandas series. 
-    Output: tuple with: Uncertainty coefficient (scalar/float) and p-value (scalar/float)
+    Output: tuple with: Uncertainty coefficient (scalar/float)
     """
     type_xinput, type_yinput = type(x), type(y)  # Uncomment while debugging
     array = pd.crosstab(y, x).values
     replace_zeroes = zero_replace(array)  # if cell value is zero we replace with 1
     Uy = calc_Uy(array)
     Uyx = calc_Uyx(array)
-    out = (Uy - Uyx) / Uy, None  # uncertainty coeff, None
+    out = (Uy - Uyx) / Uy  # uncertainty coeff
     type_out = type(out)  # Uncomment while debugging
     return out  # returns uncertainty coeff and None
 
@@ -143,9 +143,9 @@ def MI_cat(y, x):
     replace_zeroes = zero_replace(array)  # if cell value is zero we replace with 1
     Uy = calc_Uy(array)
     Uyx = calc_Uyx(array)
-    out = Uy - Uyx, None
+    out = Uy - Uyx
     type_MI_cat_output = type(out)  # Uncomment while debugging
-    return out  # returns tuple: Mutual information (MI) and None
+    return out  # returns single value ('numpy.float64'): Mutual information
 
 
 def MI_num(x, y):
@@ -157,7 +157,7 @@ def MI_num(x, y):
     # convert to numpy array and reshape due to 1D data
     x_numpy = x.values.reshape(-1, 1)
     # Below: to get the scalar-value in out from the one-item list, we slice with:[0]
-    out = mutual_info_regression(x_numpy, y.values)[0], None
+    out = mutual_info_regression(x_numpy, y.values)[0]
     type_out = type(
         mutual_info_regression(x_numpy, y.values)
     )  # Uncomment while debugging
@@ -226,18 +226,18 @@ def removeNan(serie1, serie2):
 
 
 function_dict = {
-    "Omega": omega_ols,
-    "Cramer_V": cramers_v,
-    "Cramer_V_corr": cramers_v_corr,
-    "Theils_u": u_y,
-    "Uncer_coef": u_y,
-    "Asym": u_y,
-    "MI_cat": MI_cat,
-    "MI_num": MI_num,
-    "Spear": spearmann,
-    "Spearmann": spearmann,
-    "Pearsons": pearson,
-    "Pear": pearson,
+    "Omega": [omega_ols, "with_pvalue"],
+    "Cramer_V": [cramers_v, "with_pvalue"],
+    "Cramer_V_corr": [cramers_v_corr, "with_pvalue"],
+    "Theils_u": [u_y, "no_pvalue"],
+    "Uncer_coef": [u_y, "no_pvalue"],
+    "Asym": [u_y, "no_pvalue"],
+    "MI_cat": [MI_cat, "no_pvalue"],
+    "MI_num": [MI_num, "no_pvalue"],
+    "Spear": [spearmann, "with_pvalue"],
+    "Spearmann": [spearmann, "with_pvalue"],
+    "Pearsons": [pearson, "with_pvalue"],
+    "Pear": [pearson, "with_pvalue"],
 }
 
 
@@ -248,12 +248,98 @@ def returnListOfMethods(key):
     dict_with_methods = {"with_pvalue": with_pvalue, "no_pvalue": no_pvalue}
     return dict_with_methods[key]
 
-def mimicPvalueCalc(serie1, serie2, method):
-    corr_val = function_dict[method](serie1, serie2)[0]
-    mean_and_std = calcMeanAndStdDev(method, serie1, serie2)
-    p_value = mean_and_std[1]/(corr_val-mean_and_std[0])
 
-def calcMeanAndStdDev(method, serie1, serie2):
+def calcCorrNonP(serie1, serie2, method):
+    """Function that calls calculation based on method. It handles entropy based methods - i.e non-p-value based methods. 
+    Discriminate between asymmetric and symmetric methods.
+    Input: Two pandas series, and correlation method
+    Output: single value (symmetric) or two-value tuple (asynmmetric), for example if asymmetric: (corr12, coor21). 
+    For symmetric cases: only corr"""
+    # Input types:
+    input_serie1, input_serie2, input_method = (
+        type(serie1),
+        type(serie2),
+        type(method),
+    )  # Uncomment while debugging
+    # If asym:
+    if function_dict[method][0] == u_y:
+        corr_values = (
+            function_dict[method][0](serie1, serie2),
+            function_dict[method][0](serie2, serie1),
+        )
+    # If symmetric
+    else:
+        corr_values = function_dict[method][0](serie1, serie2)
+    return corr_values
+
+
+def calcCorrAndP(serie1, serie2, method):
+    """Function that calls calculation based on method. It handles conventionel statistical methods with p-values.
+    Symmetric output only.
+    Input: Two pandas series, and correlation method
+    Output: Two float values (tuple): corr and p-value."""
+    corr_and_pvalue = function_dict[method][0](serie1, serie2)
+    return corr_and_pvalue
+
+
+def calcCorrAndMimicP(serie1, serie2, method):
+    """Splitting function for calculating correlation and p-value-like calculations for entropy-based statistics. 
+    Input: Two pandas series, and correlation method
+    Output: double two-value tuple, for example if asymmetric: ((corr12, p12), (coor21, p21)). For symmetric corr12=corr21 
+    and p12=p21."""
+    # Input types:
+    input_serie1, input_serie2, input_method = (
+        type(serie1),
+        type(serie2),
+        type(method),
+    )  # Uncomment while debugging
+
+    # corr_values returns single value (sym) or two-value tuple (asym)
+    corr_values = calcCorrNonP(serie1, serie2, method)
+
+    # If symmetric
+    if isinstance(corr_values, float):
+        # mean_and_std12_and21 returns a two-value tuple
+        mean_and_stdev = calcMeanAndStdDev(serie1, serie2, method)
+        mimic_p = mimicPvalueCalc(mean_and_stdev, corr_values)
+        corr_and_p = corr_values, mimic_p
+        return corr_and_p, corr_and_p  # return duplicate due two data structure
+
+    # Asym
+    elif len(corr_values) == 2:
+        # mean_and_std12_and21 returns a 2 x two-value tuple
+        mean_and_stdev12_and21 = (
+            calcMeanAndStdDev(serie1, serie2, method),
+            calcMeanAndStdDev(serie2, serie1, method),
+        )
+        # To calc p-value p12 we pass in the first part of the double tuple calc above and the first part of the
+        # corr_values tuple above. For the p21 it is the last part of the tuples.
+        mimic_p12_andp21 = (
+            mimicPvalueCalc(mean_and_stdev12_and21[0], corr_values[0]),
+            mimicPvalueCalc(mean_and_stdev12_and21[1], corr_values[1]),
+        )
+        corr12_and_p12, corr21_and_p21 = (
+            (corr_values[0], mimic_p12_andp21[0]),
+            (corr_values[1], mimic_p12_andp21[1]),
+        )
+        return corr12_and_p12, corr21_and_p21
+
+
+def mimicPvalueCalc(mean_and_stdev, corr_value):
+    """Formula: p = stdev/(corr_value-mean), where corr_value: the actual corr value, stdev and mean: the standard deviation 
+    and mean of the corr-value for 5 shuffled serie2 rows.
+    Input: two-value tuple (mean_and_stdev) and float64 (corr_value)
+    Output: float64"""
+    input_mean_stdev, input_corr_val = (
+        type(mean_and_stdev),
+        type(corr_value),
+    )  # Uncomment while debugging
+    # input to the below calc of p-value is a tuple (mean_and_stdev) and a single value (corr_value)
+    p_value = mean_and_stdev[1] / (corr_value - mean_and_stdev[0])
+    return p_value
+
+
+def calcMeanAndStdDev(serie1, serie2, method):
     """Input is a pandas serie. Calc mean and std of the correlation value based on 5 corr value estimations"""
     type_method_in, type_serie1_in, type_serie2_in = (
         type(method),
@@ -266,8 +352,8 @@ def calcMeanAndStdDev(method, serie1, serie2):
     for cycle in range(5):
         # first convert serie2 to numpy, then shuffle serie2, and lastly reconvert to pandas Series type
         serie2 = pd.Series(shuffle(serie2.to_numpy()), name=serie2_name)
-        # value = function_dict[method](serie1, serie2)[0]
-        corr_value = float(function_dict[method](serie1, serie2)[0])
+        # value = function_dict[method][0](serie1, serie2)
+        corr_value = float(function_dict[method][0](serie1, serie2))
         corr_values.append(corr_value)
     out = mean(corr_values), stdev(corr_values)
     type_out = type(out)  # Uncomment while debugging
@@ -280,12 +366,14 @@ def evalSignificance(method, serie1, serie2, CI=0.1):
     Input: method=choose string_name from function_dict, serie1/2=pandas series
     Output: corr_value (scalar/float) and p-value (scalar/float)"""
 
-    corr_values = function_dict[method](serie1, serie2) # tuple
-    
+    corr_values = function_dict[method][0](
+        serie1, serie2
+    )  # returns single value or two-value tuple
+
     # If non-p-value based method
     if method in returnListOfMethods("no_pvalue"):
         mean_and_std = calcMeanAndStdDev(method, serie1, serie2)
-        if corr_values[0] > (mean_and_std[0] + mean_and_std[1] * (1/CI)):
+        if corr_values[0] > (mean_and_std[0] + mean_and_std[1] * (1 / CI)):
             return corr_values[0]
         else:
             return "Corr is Insignificant"
@@ -300,39 +388,12 @@ def evalSignificance(method, serie1, serie2, CI=0.1):
 
 
 # df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
-# serie1, serie2 = df_test["global_warm_risk"], df_test["weight"]
-# serie1, serie2 = removeNan(df_test["X3"], df_test["Y1"])
-# print(calcMeanAndStdDev("MI_cat", serie1, serie2))
-# print(MI_num(serie1, serie2))
-# print(evalSignificance("MI_num", serie1, serie2, std_val=15))
-# print(pd.crosstab(serie1, serie2))
 
-# # print(evalSignificance("Spearmann", df_test["X1"], df_test["Y1"]))
-# print(df_test)
-# serie1, serie2 = removeNan(df_test["X1"], df_test["Y1"])
-
-# print(spearmann(serie1, serie2))
-
-# serie1, serie2 = df_test["X1"], df_test["X3"]
-# serie1, serie2 = df_test["intimacy"], df_test["num_police"]
-
+# serie1, serie2 = df_test["X1"], df_test["Y1"]
 # serie1, serie2 = removeNan(serie1, serie2)
-# print(calcMeanAndStd("Asym", serie1, serie2))
-# print(evalSignificance("Asym", serie1, serie2, CI=0.1))
-# print(omega_ols(serie1, serie2))
-# print(type(serie1.to_numpy()))
-# serie2_name = serie2.name
-# serie2 = serie2.to_numpy()
-# serie2 = pd.Series(serie2, name=serie2_name)
-# print(serie1.name, serie2.name)
-# print(omega_ols(serie1, serie2))
-# Setup
-# desired = 0.006285953589698483
-# # Exercise
-# np.random.seed(0)
-# desired = "Corr is Insignificant"
+# actual = calcCorrAndP(serie1, serie2, "Spear")
 
-# # Exercise
-# serie1, serie2 = df_test["global_warm_risk"], df_test["gender"]
-# actual = evalSignificance("MI_cat", serie1, serie2, std_val=10)
-# print(actual)
+# # Verify
+# print(type(actual).__name__)
+# print(dir(actual))
+# print(len(actual))

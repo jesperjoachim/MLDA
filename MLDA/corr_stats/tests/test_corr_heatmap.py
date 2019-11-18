@@ -11,10 +11,10 @@ from MLDA.corr_stats.corr_heatmap import (
     removeNan,
     corrType,
     corrMethodsExecute,
-    corrValue,
-    findCorr,
     checkdtypeOfColumns,
     correlation,
+    findCorrPvalBasedAndNot,
+    findCorrSelectMethod,
 )
 
 
@@ -35,159 +35,160 @@ class TestFunctions(unittest.TestCase):
         result = corrType("num", "num")
         self.assertEqual("numnum", result)
 
-    def test0_corrMethodsExecute_output_is_list(self):
-        result = corrMethodsExecute(
-            "catcat",
-            method_cc=["Asym"],
-            method_cn=["Omega_ols"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertEqual("list", type(result).__name__)
-
-    def test1_corrMethodsExecute(self):
-        result = corrMethodsExecute(
-            "catcat",
-            method_cc=["Asym"],
-            method_cn=["Omega_ols"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertEqual(["Asym"], result)
-
-    def test2_corrMethodsExecute(self):
-        result = corrMethodsExecute(
-            "catnum",
-            method_cc=["Asym"],
-            method_cn=["Omega_ols"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertEqual(["Omega_ols"], result)
-
-    def test3_corrMethodsExecute(self):
-        result = corrMethodsExecute(
-            "numnum",
-            method_cc=["Asym"],
-            method_cn=["Omega_ols"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertEqual(["Spear", "Pear", "MI_num"], result)
-
-    def test0_corrValue_output_is_list_with_double_tuple(self):
-        # testing value 1 of a list with 2 values
-        tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
-        serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
-        result = corrValue(serie1, serie2, ["Asym"])
-        self.assertEqual("list", type(result).__name__)
-        self.assertEqual("tuple", type(result[0]).__name__)
-        self.assertEqual("tuple", type(result[1]).__name__)
-
-    def test1_corrValue(self):
-        # testing value 1 of a list with 2 values
-        tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
-        serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
-        result = corrValue(serie1, serie2, ["Asym"])
-        self.assertAlmostEqual(0.019759842721107736, result[0][0], places=4)
-
-    def test2_corrValue(self):
-        # testing value 2 of a list with 2 values
-        tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
-        serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
-        result = corrValue(serie1, serie2, ["Asym"])
-        self.assertAlmostEqual(0.006552725157981362, result[1][0], places=4)
+    # def test0_corrMethodsExecute_output_is_list(self):
+    #     result = corrMethodsExecute(
+    #         "catcat",
+    #         method_cc=["Asym"],
+    #         method_cn=["Omega_ols"],
+    #         method_nn=["Spear", "Pear", "MI_num"],
+    #     )
+    #     self.assertEqual("list", type(result).__name__)
 
 
-class TestFindCorrFunctions(unittest.TestCase):
-    def test0_findCorr_output_is_numeric(self):
-        # testing 2 cat series
-        fifa = shf.spacesToUnderscore(
-            pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
-        )
-        catcol = [
-            "Name",
-            "Club",
-            "Nationality",
-            "Preferred_Foot",
-            "Position",
-            "Body_Type",
-        ]
-        numcol = []
-        serie1, serie2 = fifa["Preferred_Foot"], fifa["Position"]
-        result = findCorr(
-            serie1,
-            serie2,
-            catcol,
-            method_cc=["Asym"],
-            method_cn=["Omega_ols"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertEqual(
-            True, isinstance(result[1][0], float) or isinstance(result[1][0], int)
-        )
+#     def test1_corrMethodsExecute(self):
+#         result = corrMethodsExecute(
+#             "catcat",
+#             method_cc=["Asym"],
+#             method_cn=["Omega_ols"],
+#             method_nn=["Spear", "Pear", "MI_num"],
+#         )
+#         self.assertEqual(["Asym"], result)
 
-    def test1_findCorr(self):
-        # testing 2 cat series
-        fifa = shf.spacesToUnderscore(
-            pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
-        )
-        catcol = [
-            "Name",
-            "Club",
-            "Nationality",
-            "Preferred_Foot",
-            "Position",
-            "Body_Type",
-        ]
-        numcol = [
-            "Age",
-            "Overall",
-            "Potential",
-            "Crossing",
-            "Finishing",
-            "ShortPassing",
-            "Dribbling",
-            "LongPassing",
-            "BallControl",
-            "Acceleration",
-            "SprintSpeed",
-            "Agility",
-            "Stamina",
-        ]
-        serie1, serie2 = fifa["Preferred_Foot"], fifa["Position"]
-        result = findCorr(
-            serie1,
-            serie2,
-            catcol,
-            method_cc=["Asym"],
-            method_cn=["Omega_ols"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertAlmostEqual(0.212351469, result[1][0], places=4)
+#     def test2_corrMethodsExecute(self):
+#         result = corrMethodsExecute(
+#             "catnum",
+#             method_cc=["Asym"],
+#             method_cn=["Omega_ols"],
+#             method_nn=["Spear", "Pear", "MI_num"],
+#         )
+#         self.assertEqual(["Omega_ols"], result)
 
-    def test2_findCorr(self):
-        # testing 2 num series
-        fifa = shf.spacesToUnderscore(
-            pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
-        )
-        catcol = ["Preferred_Foot", "Position", "Body_Type"]
-        numcol = [
-            "Dribbling",
-            "LongPassing",
-            "BallControl",
-            "Acceleration",
-            "SprintSpeed",
-            "Agility",
-            "Stamina",
-        ]
-        serie1, serie2 = fifa["BallControl"], fifa["Acceleration"]
-        serie1, serie2 = removeNan(serie1, serie2)
-        result = findCorr(
-            serie1,
-            serie2,
-            catcol,
-            method_cc=["Asym"],
-            method_cn=["Omega"],
-            method_nn=["Spear", "Pear", "MI_num"],
-        )
-        self.assertAlmostEqual(0.6757374207, result[1], places=4)
+#     def test3_corrMethodsExecute(self):
+#         result = corrMethodsExecute(
+#             "numnum",
+#             method_cc=["Asym"],
+#             method_cn=["Omega_ols"],
+#             method_nn=["Spear", "Pear", "MI_num"],
+#         )
+#         self.assertEqual(["Spear", "Pear", "MI_num"], result)
+
+#     def test0_corrValue_output_is_list_with_double_tuple(self):
+#         # testing value 1 of a list with 2 values
+#         tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
+#         serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
+#         result = corrValue(serie1, serie2, ["Asym"])
+#         self.assertEqual("list", type(result).__name__)
+#         self.assertEqual("tuple", type(result[0]).__name__)
+#         self.assertEqual("tuple", type(result[1]).__name__)
+
+#     def test1_corrValue(self):
+#         # testing value 1 of a list with 2 values
+#         tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
+#         serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
+#         result = corrValue(serie1, serie2, ["Asym"])
+#         self.assertAlmostEqual(0.019759842721107736, result[0][0], places=4)
+
+#     def test2_corrValue(self):
+#         # testing value 2 of a list with 2 values
+#         tab1_input = pd.read_excel("/home/jesper/Work/macledan/input_files/tab1.xlsx")
+#         serie1, serie2 = tab1_input["num_police"], tab1_input["intimacy"]
+#         result = corrValue(serie1, serie2, ["Asym"])
+#         self.assertAlmostEqual(0.006552725157981362, result[1][0], places=4)
+
+
+# class TestFindCorrFunctions(unittest.TestCase):
+#     def test0_findCorr_output_is_numeric(self):
+#         # testing 2 cat series
+#         fifa = shf.spacesToUnderscore(
+#             pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
+#         )
+#         catcol = [
+#             "Name",
+#             "Club",
+#             "Nationality",
+#             "Preferred_Foot",
+#             "Position",
+#             "Body_Type",
+#         ]
+#         numcol = []
+#         serie1, serie2 = fifa["Preferred_Foot"], fifa["Position"]
+#         result = findCorr(
+#             serie1,
+#             serie2,
+#             catcol,
+#             method_cc=["Asym"],
+#             method_cn=["Omega_ols"],
+#             method_nn=["Spear", "Pear", "MI_num"],
+#         )
+#         self.assertEqual(
+#             True, isinstance(result[1][0], float) or isinstance(result[1][0], int)
+#         )
+
+#     def test1_findCorr(self):
+#         # testing 2 cat series
+#         fifa = shf.spacesToUnderscore(
+#             pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
+#         )
+#         catcol = [
+#             "Name",
+#             "Club",
+#             "Nationality",
+#             "Preferred_Foot",
+#             "Position",
+#             "Body_Type",
+#         ]
+#         numcol = [
+#             "Age",
+#             "Overall",
+#             "Potential",
+#             "Crossing",
+#             "Finishing",
+#             "ShortPassing",
+#             "Dribbling",
+#             "LongPassing",
+#             "BallControl",
+#             "Acceleration",
+#             "SprintSpeed",
+#             "Agility",
+#             "Stamina",
+#         ]
+#         serie1, serie2 = fifa["Preferred_Foot"], fifa["Position"]
+#         result = findCorr(
+#             serie1,
+#             serie2,
+#             catcol,
+#             method_cc=["Asym"],
+#             method_cn=["Omega_ols"],
+#             method_nn=["Spear", "Pear", "MI_num"],
+#         )
+#         self.assertAlmostEqual(0.212351469, result[1][0], places=4)
+
+#     def test2_findCorr(self):
+#         # testing 2 num series
+#         fifa = shf.spacesToUnderscore(
+#             pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
+#         )
+#         catcol = ["Preferred_Foot", "Position", "Body_Type"]
+#         numcol = [
+#             "Dribbling",
+#             "LongPassing",
+#             "BallControl",
+#             "Acceleration",
+#             "SprintSpeed",
+#             "Agility",
+#             "Stamina",
+#         ]
+#         serie1, serie2 = fifa["BallControl"], fifa["Acceleration"]
+#         serie1, serie2 = removeNan(serie1, serie2)
+#         result = findCorr(
+#             serie1,
+#             serie2,
+#             catcol,
+#             method_cc=["Asym"],
+#             method_cn=["Omega"],
+#             method_nn=["Spear", "Pear", "MI_num"],
+#         )
+#         self.assertAlmostEqual(0.6757374207, result[1], places=4)
 
 
 """Dataset used for test"""
@@ -301,6 +302,91 @@ def test_checkdtypeOfColumns_returns_NOerror_when_numerical_columns_are_float64O
 
 """END Testing checkdtypeOfColumns"""
 
+
+"""Testing findCorrPvalBasedAndNot"""
+
+
+def test_findCorrPvalBasedAndNot_returns_correct_dtype_and_correct_result_catnum(
+    dfForTest
+):
+    # Setup
+    desired1 = 2
+    desired2 = ((0.451751, 0.01591), (0.451751, 0.01591))
+    # Exercise
+    serie1, serie2 = dfForTest["group"], dfForTest["weight"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = findCorrPvalBasedAndNot(serie1, serie2, "Omega")
+
+    # Verify
+    assert len(actual) == desired1  # length of outer array
+    assert len(actual[0]) == desired1  # length of inner array
+    npt.assert_array_almost_equal(actual, desired2)
+
+
+def test_findCorrPvalBasedAndNot_returns_correct_dtype_and_correct_result_catcat_sym(
+    dfForTest
+):
+    # Setup
+    desired1 = 2
+    desired2 = ((0.145864, 0.893955), (0.145864, 0.893955))
+    # Exercise
+    serie1, serie2 = dfForTest["intimacy"], dfForTest["num_police"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = findCorrPvalBasedAndNot(serie1, serie2, "Cramer_V")
+
+    # Verify
+    assert len(actual) == desired1  # length of outer array
+    assert len(actual[0]) == desired1  # length of inner array
+    npt.assert_array_almost_equal(actual, desired2)
+
+
+def test_findCorrPvalBasedAndNot_returns_correct_dtype_and_correct_result_catcat_asym(
+    dfForTest
+):
+    # Setup
+    desired1 = 2
+    desired2 = (
+        (0.006285953589698483, 0.0831586187714002),
+        (0.002752174685457338, 0.09891357783364078),
+    )
+    # Exercise
+    serie1, serie2 = dfForTest["global_warm_risk"], dfForTest["gender"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    actual = findCorrPvalBasedAndNot(serie1, serie2, "Asym")
+
+    # Verify
+    assert len(actual) == desired1  # length of outer array
+    assert len(actual[0]) == desired1  # length of inner array
+    npt.assert_array_almost_equal(actual, desired2)
+
+
+"""END Testing findCorrPvalBasedAndNot"""
+
+"""Testing findCorrSelectMethod"""
+
+
+def test_findCorrSelectMethod_returns_correct_dtype_and_correct_result_catcat_asym(
+    dfForTest
+):
+    # Setup
+    desired1 = 2
+    desired2 = (
+        (0.006285953589698483, 0.0831586187714002),
+        (0.002752174685457338, 0.09891357783364078),
+    )
+    # Exercise
+    serie1, serie2 = dfForTest["global_warm_risk"], dfForTest["gender"]
+    serie1, serie2 = removeNan(serie1, serie2)
+    catcol = ["heyhey", "global_warm_risk", "gender", "heysan"]
+    actual = findCorrSelectMethod(serie1, serie2, catcol)
+
+    # Verify
+    assert len(actual) == desired1  # length of outer array
+    assert len(actual[0]) == desired1  # length of inner array
+    npt.assert_array_almost_equal(actual, desired2)
+
+
+"""END Testing findCorrPvalBasedAndNot"""
 
 # def test_correlation_test_df_with_3_different_datasets(self):
 #     # Setup
