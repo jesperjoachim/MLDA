@@ -73,44 +73,37 @@ def corrMethodsExecute(corr_type, method_cc, method_cn, method_nn):
     return dict_methods[corr_type]
 
 
-# def corrValue(serie1, serie2, methods):
-#     """Returns the asym values of serie1/2 (i.e 2 diff values), or the max values (same)
-#     for the symmetric case"""
-#     corr_values = []
-#     if "Asym" in methods:
-#         # asymmetric matrix
-#         method = methods[0]
-#         corr_values.extend(
-#             (
-#                 sf.function_dict[method][0](serie1, serie2),
-#                 sf.function_dict[method][0](serie2, serie1),
-#             )
-#         )
-#     elif methods:
-#         # symmetric matrix
-#         value = []
-#         # loop through the stated methods to be evaluated
-#         for method in methods:
-#             value.append(sf.function_dict[method][0](serie1, serie2)[0])
-#         # take the max corr_value from the evaluated methods
-#         value_max = max(value)
-#         corr_values.extend((value_max, value_max))
-#     else:
-#         return "error in methods"
-#     return corr_values
-
-
-def screenCorrValuesBasedOnPvalue(corr_value, p_value, CI=0.1):
-    if p_value < CI:
-        return corr_value
+def screenCorrValuesBasedOnPvalue(corr_and_p_value, CI=0.1):
+    """Function for screening corr-values based on p-values. If p-val > CI replace corr-val with 'p>CI',
+    else keep corr-val.
+    Input: double pairs of corr-val and p-val - i.e. 2 x two-value tuple.
+    Output: same as input."""
+    # First pair in tuple
+    if corr_and_p_value[0][1] < CI:
+        corr12 = corr_and_p_value[0][0]
+    elif corr_and_p_value[0][1] > CI:
+        corr12 = "p > CI"
     else:
-        return "p > CI"
+        corr12 = np.NaN
+    # Second pair in tuple
+    if corr_and_p_value[1][1] < CI:
+        corr21 = corr_and_p_value[1][0]
+    elif corr_and_p_value[1][1] > CI:
+        corr21 = "p > CI"
+    else:
+        corr21 = np.NaN
+    # Recombine screened values
+    corr_and_p_value = (
+        (corr12, corr_and_p_value[0][1]),
+        (corr21, corr_and_p_value[1][1]),
+    )
+    return corr_and_p_value
 
 
 def findCorrPvalBasedAndNot(serie1, serie2, method):
-    """Splitting function for getting correlation and p-values. Based on input it chooses either: 
+    """Splitting function for getting correlation and p-values. Based on input it chooses either:
     1) p-value based methods or 2) non-p-value based methods
-    Input: Two pandas series, and correlation method
+    Input: Two pandas series, and correlation method as a string
     Output: 2 x two-value tuple, for example if asym: ((corr12, p12), (coor21, p21)). For sym corr12=corr21 and p12=p21"""
 
     if sf.function_dict[method][1] == "no_pvalue":
@@ -122,10 +115,17 @@ def findCorrPvalBasedAndNot(serie1, serie2, method):
 
 
 def findCorrSelectMethod(
-    serie1, serie2, catcol, method_cc="Asym", method_cn="Omega", method_nn="Pear"
+    serie1,
+    serie2,
+    catcol,
+    CI=0.1,
+    method_cc="Cramer_V",
+    method_cn="Omega",
+    method_nn="Pear",
 ):
     if serie1.name == serie2.name:
         corr_and_pvalues = ((1, 1), (1, 1))
+        return corr_and_pvalues
     else:
         type_serie1 = ["cat" if serie1.name in catcol else "num"][0]
         type_serie2 = ["cat" if serie2.name in catcol else "num"][0]
@@ -134,25 +134,22 @@ def findCorrSelectMethod(
         corr_and_pvalues = findCorrPvalBasedAndNot(serie1, serie2, corr_method)
 
     # Lastly, we screen corr_values based on pvalues and restore them in the variable corr_and_pvalues
-    # corr_values12 = screenCorrValuesBasedOnPvalue(
-    #     corr_and_pvalues[0][0], corr_and_pvalues[0][1]
-    # )
-    # corr_values21 = screenCorrValuesBasedOnPvalue(
-    #     corr_and_pvalues[1][0], corr_and_pvalues[1][1]
-    # )
-    # corr_and_pvalues = (
-    #     corr_values12,
-    #     corr_and_pvalues[0][1],
-    #     (corr_values21, corr_and_pvalues[1][1]),
-    # )
+    corr_and_pvalues = screenCorrValuesBasedOnPvalue(corr_and_pvalues, CI)
+
     return corr_and_pvalues
 
 
 def correlation(
-    dataset, catcols, numcols, method_cc="Cramer_V", method_cn="Omega", method_nn="Pear"
+    dataset,
+    catcols,
+    numcols,
+    CI=0.1,
+    method_cc="Cramer_V",
+    method_cn="Omega",
+    method_nn="Pear",
 ):
-    """Returns association strength matrix of any combination between numerical and categorical variables
-    Matrices with both corelation and p-values"""
+    """Returns association strength matrix of any combination between numerical and categorical variables.
+    Returns 2 matrices: one with corelation values and one with p-values"""
     # Arrange dataset so categoric columns are to the right
 
     dataset = dataset[catcols + numcols]
@@ -167,6 +164,7 @@ def correlation(
                 serie1,
                 serie2,
                 catcols,
+                CI=CI,
                 method_cc=method_cc,
                 method_cn=method_cn,
                 method_nn=method_nn,
@@ -179,19 +177,47 @@ def correlation(
     return asso_matrix_corr, asso_matrix_p
 
 
-# df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
+# df_test = pd.read_excel("/home/jesper/Work/MLDA_app/MLDA/input_data/test_DF.xlsx")
+# # # Exercise
+# catcols = [
+#     "global_warm_risk",
+#     "intimacy",
+#     "President",
+#     "gender",
+#     "group",
+#     "Color",
+#     "num_police",
+# ]
+# numcols = ["X1", "weight", "X3", "Y1"]
 
-# serie1, serie2 = df_test["X1"], df_test["Y1"]
-# actual = calcCorrAndP(serie1, serie2, "Spear")
-# print(actual)
+# actual = correlation(
+#     df_test,
+#     catcols,
+#     numcols,
+#     CI=1,
+#     method_cc="Asym",
+#     method_cn="Omega",
+#     method_nn="Spearmann",
+# )
 
-# #
-# ,
-# catcols = ["global_warm_risk", "gender", "intimacy", "group", "num_police"]
-# numcols = ["weight", "X3", "Y1"]
-# for entry in catcols:
-#     df_test[entry] = df_test[entry].astype("category")
+# print(actual[0])
+# print()
+# print(actual[1])
 
-# print(checkdtypeOfColumns(catcols, numcols, df_test))
-# print(correlation(df_test, catcols, numcols, method_cc="Cramer_V"))
+# print("hey")
+# data_input = pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
+
+# numcols = [
+#     'Age',
+#  'Overall',
+#  'Potential',
+# 'Crossing','Finishing',  'ShortPassing',  'Dribbling','LongPassing', 'BallControl', 'Acceleration',
+#        'SprintSpeed', 'Agility',  'Stamina',
+#  'Value','Wage']
+# numcols = []
+# catcols = ["Preferred Foot", "Position", "Body Type"]
+
+# data = data_input[catcols + numcols]
+
+# actual = correlation(data, catcols, numcols, CI=1, method_cc="Asym")
 

@@ -1,0 +1,10 @@
+{
+  "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFindCorrFunctions::test0_findCorr_output_is_numeric": true,
+  "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFindCorrFunctions::test1_findCorr": true,
+  "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFindCorrFunctions::test2_findCorr": true,
+  "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFindCorrFunctions::test2_findCorrPvalBasedAndNot": true,
+  "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFunctions::test0_corrValue_output_is_list_with_double_tuple": true,
+  "MLDA/corr_stats/tests/test_stat_functions.py::test_calcMeanAndStdDev_with_Asym_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender": true,
+  "MLDA/corr_stats/tests/test_stat_functions.py::test_calcMeanAndStdDev_with_MIcat_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender": true,
+  "MLDA/corr_stats/tests/test_stat_functions.py::test_cramersV_out_is_zero_when_crosstab_dim_is_below_2x2_for_testing_purpose_only": true
+}

@@ -119,18 +119,40 @@ def calc_Uyx(array):
 def u_y(y, x):
     """Approved
     Part 3a of 3 - Uncertainty coefficient (asymmetric)
-    Input: Two pandas series. 
+    Input: Two pandas series. x serie goes to columns in contingency/cross table (dependent variable), 
+    y serie goes to rows in contingency/cross table (independent variable).
     Output: tuple with: Uncertainty coefficient (scalar/float)
     """
     type_xinput, type_yinput = type(x), type(y)  # Uncomment while debugging
+    crosstab = pd.crosstab(y, x)
     array = pd.crosstab(y, x).values
     replace_zeroes = zero_replace(array)  # if cell value is zero we replace with 1
     Uy = calc_Uy(array)
+    if np.isclose(Uy, 0):
+        return np.NaN
     Uyx = calc_Uyx(array)
     out = (Uy - Uyx) / Uy  # uncertainty coeff
     type_out = type(out)  # Uncomment while debugging
     return out  # returns uncertainty coeff and None
 
+def u_y_crosstab_input(crosstab_df):
+    """Uncertainty coefficient. Measures the reduction of uncertainty (entropy) in the
+    column variable, y, when the row variable, x is known. Or: The uncertainty coefficient,
+    is a percentage that explains how much better we can predict values of the dependent 
+    variable, y by knowing the values of the independent variable, x.
+    Input: pandas dataframe.
+    Output: scalar: Uncertainty coefficient (scalar/float)
+    """
+    # Input is a crosstab as a pandas dataframe
+    crosstab = crosstab_df
+    array = crosstab.values
+    replace_zeroes = zero_replace(array)  # if cell value is zero we replace with 1
+    Uy = calc_Uy(array)
+    if np.isclose(Uy, 0):
+        return np.NaN
+    Uyx = calc_Uyx(array)
+    out = (Uy - Uyx) / Uy  # uncertainty coeff
+    return out, crosstab  # returns uncertainty coeff 
 
 def MI_cat(y, x):
     """Approved
@@ -142,6 +164,8 @@ def MI_cat(y, x):
     array = pd.crosstab(y, x).values
     replace_zeroes = zero_replace(array)  # if cell value is zero we replace with 1
     Uy = calc_Uy(array)
+    if np.isclose(Uy, 0):
+        return np.NaN
     Uyx = calc_Uyx(array)
     out = Uy - Uyx
     type_MI_cat_output = type(out)  # Uncomment while debugging
@@ -151,7 +175,7 @@ def MI_cat(y, x):
 def MI_num(x, y):
     """
     Input: Two pandas series. 
-    Output: tuple with: Uncertainty coefficient (scalar/float) and None
+    Output: tuple with: Uncertainty coefficient (scalar/float)
     """
     type_xinput, type_yinput = type(x), type(y)  # Uncomment while debugging
     # convert to numpy array and reshape due to 1D data
@@ -335,9 +359,17 @@ def mimicPvalueCalc(mean_and_stdev, corr_value):
         type(corr_value),
     )  # Uncomment while debugging
     # input to the below calc of p-value is a tuple (mean_and_stdev) and a single value (corr_value)
+
+    # Before calculating p_val, we handle 2 edge cases:
+    # 1) if the calc mean for shuffled rows exceed corr_val
+    if corr_value <= mean_and_stdev[0]:
+        return np.NaN
+    # 2) if (corr_val - mean) is close to 0
+    if np.isclose((corr_value - mean_and_stdev[0]), 0):
+        return np.NaN
     p_value = mean_and_stdev[1] / (corr_value - mean_and_stdev[0])
     return p_value
-
+# print(mimicPvalueCalc((0.20000000000001, 0.1), 0.2))
 
 def calcMeanAndStdDev(serie1, serie2, method):
     """Input is a pandas serie. Calc mean and std of the correlation value based on 5 corr value estimations"""
@@ -360,7 +392,7 @@ def calcMeanAndStdDev(serie1, serie2, method):
     return out
 
 
-def evalSignificance(method, serie1, serie2, CI=0.1):
+def evalSignificance(serie1, serie2, method, CI=0.1):
     """Evaluates significance based on the argument values (p_val and std_val).
     Calc is based on p-value if they exist for the method used, else a value based on mean and std for shuffled corr-values is used.
     Input: method=choose string_name from function_dict, serie1/2=pandas series
@@ -372,9 +404,9 @@ def evalSignificance(method, serie1, serie2, CI=0.1):
 
     # If non-p-value based method
     if method in returnListOfMethods("no_pvalue"):
-        mean_and_std = calcMeanAndStdDev(method, serie1, serie2)
-        if corr_values[0] > (mean_and_std[0] + mean_and_std[1] * (1 / CI)):
-            return corr_values[0]
+        mean_and_std = calcMeanAndStdDev(serie1, serie2, method)
+        if corr_values > (mean_and_std[0] + mean_and_std[1] * (1 / CI)):
+            return corr_values
         else:
             return "Corr is Insignificant"
 
@@ -386,14 +418,58 @@ def evalSignificance(method, serie1, serie2, CI=0.1):
         else:
             return "p-value > CI"
 
-
+# df_fifa = pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv") # FIFA
 # df_test = pd.read_excel("/home/jesper/Work/macledan/input_files/test_DF.xlsx")
-
-# serie1, serie2 = df_test["X1"], df_test["Y1"]
+# df_test = pd.read_excel("/home/jesper/Work/MLDA_app/MLDA/input_data/store_and_custumer_satisfaction.xlsx") # From https://www.ibm.com/support/knowledgecenter/en/SSLVMB_23.0.0/spss/tutorials/xtab_crosstab_satisf_02.html
+# serie1, serie2 = df_test["Store"], df_test["Satisfaction"]
 # serie1, serie2 = removeNan(serie1, serie2)
-# actual = calcCorrAndP(serie1, serie2, "Spear")
+# fifa1, fifa2 = df_fifa["Position"], df_fifa["Preferred Foot"]
+# # fifa1, fifa2 = removeNan(serie1, serie2)
+# actual12 = u_y(serie1, serie2)
+# actual21 = u_y(serie2, serie1)
 
-# # Verify
-# print(type(actual).__name__)
-# print(dir(actual))
-# print(len(actual))
+# fifa12 = u_y(fifa1, fifa2)
+# fifa21 = u_y(fifa2, fifa1)
+# # actual = calcCorrAndMimicP(serie1, serie2, 'Asym')
+# # # print(serie2)
+# print(actual12)
+# print(actual21)
+# print(fifa12)
+# print(fifa21)
+# actual = u_y(serie1, serie2)
+# actual = calcCorrAndMimicP(serie1, serie2, 'Asym')
+# print(actual)
+# serie1, serie2 = df_test["global_warm_risk"], df_test["intimacy"]
+# actual_cramer = calcCorrAndP(serie1, serie2, "Cramer_V")
+# actual_asym = calcCorrAndMimicP(serie1, serie2, "Asym")
+
+# print(actual_cramer)
+# print(actual_asym)
+
+# Construct a dataframe
+
+# data_orig = [[416, 121], [335, 2], [112, 1]]
+# df_orig = pd.DataFrame(
+#     data=data_orig, index=["Clinton", "Dole", "Perot"], columns=["white", "black"])
+
+# print(u_y_crosstab_input(df_orig))
+
+# data_cp = [[6, 121], [335, 2], [412, 1]]
+# df_cp = pd.DataFrame(
+#     data=data_cp, index=["Clinton", "Dole", "Perot"], columns=["white", "black"])
+
+# # data_pc = [[6, 335, 412], [121, 2, 1]]
+# # df_pc = pd.DataFrame(
+# #     data=data_pc, columns=["Clinton", "Dole", "Perot"], index=["white", "black"])
+
+# df_test = pd.read_excel("/home/jesper/Work/MLDA_app/MLDA/input_data/color_president.xlsx")
+# serie1, serie2 = df_test['Color'], df_test['President']
+
+# # print(serie1)
+
+# print(u_y_crosstab_input(df_cp))
+# print()
+# # print(u_y_crosstab_input(df_pc))
+
+# print(u_y(serie1, serie2))
+# print(u_y(serie2, serie1))
