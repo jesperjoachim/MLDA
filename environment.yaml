@@ -13,7 +13,7 @@ dependencies:
   - blas=1.0=openblas
   - bleach=3.1.0=py_0
   - bzip2=1.0.8=h516909a_1
-  - ca-certificates=2019.9.11=hecc5488_0
+  - ca-certificates=2019.10.16=0
   - certifi=2019.9.11=py37_0
   - click=7.0=py37_0
   - coverage=4.5.4=py37h516909a_0
@@ -84,7 +84,7 @@ dependencies:
   - nss=3.47=he751ad9_0
   - numpy=1.17.3=py37h95a1406_0
   - openblas=0.3.7=h6e990d7_2
-  - openssl=1.1.1c=h516909a_0
+  - openssl=1.1.1d=h7b6447c_3
   - packaging=19.2=py_0
   - pandas=0.25.2=py37hb3f55d8_0
   - pandoc=2.7.3=0
