@@ -124,7 +124,7 @@ def findCorrSelectMethod(
     method_nn="Pear",
 ):
     if serie1.name == serie2.name:
-        corr_and_pvalues = ((1, 1), (1, 1))
+        corr_and_pvalues = ((0, 1), (0, 1))
         return corr_and_pvalues
     else:
         type_serie1 = ["cat" if serie1.name in catcol else "num"][0]
