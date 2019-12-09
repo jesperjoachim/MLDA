@@ -1,5 +1,5 @@
 *.csv
-#*.ipynb
+*.ipynb
 *.ods
 *.xlsx
 *.pdf
