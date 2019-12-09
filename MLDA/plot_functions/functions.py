@@ -6,6 +6,56 @@ import numpy as np
 
 import math
 
+"""Section for defining set values for plots and for accessing the values via functions"""
+
+dict_boxplot_setvalues = {"label_size": 15, "labelpadding": 13}
+
+
+def setSharedAxParameters(ax_instance):
+    ax_instance.xaxis.label.set_size(dict_boxplot_setvalues["label_size"])
+    ax_instance.xaxis.labelpad = dict_boxplot_setvalues["labelpadding"]
+    ax_instance.yaxis.label.set_size(dict_boxplot_setvalues["label_size"])
+    ax_instance.yaxis.labelpad = dict_boxplot_setvalues["labelpadding"]
+
+
+def setSharedAx_xParameters(ax_instance):
+    ax_instance.xaxis.label.set_size(dict_boxplot_setvalues["label_size"])
+    ax_instance.xaxis.labelpad = dict_boxplot_setvalues["labelpadding"]
+
+
+def setSharedAx_yParameters(ax_instance):
+    ax_instance.yaxis.label.set_size(dict_boxplot_setvalues["label_size"])
+    ax_instance.yaxis.labelpad = dict_boxplot_setvalues["labelpadding"]
+
+
+"""END Section for defining set values for plots and for accessing the values via functions"""
+
+"""Section with plot functions"""
+
+
+def plotHistCatVar(df_cat_vars):
+    """This function is used for plotting histograms of the categoric vars
+    Input: df_cat_vars: pandas dataframe
+    Output: plot """
+
+    if len(df_cat_vars.columns) > 3:
+        nrows = math.ceil(len(df_cat_vars.columns) / 3)
+        ncols = 3
+    else:
+        nrows = 1
+        ncols = len(df_cat_vars.columns)
+
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20, nrows * 8))
+    for var, ax in zip(df_cat_vars.columns, axs.flatten()):
+        sns.countplot(df_cat_vars[var], ax=ax)
+        plt.subplots_adjust(
+            left=None, bottom=None, right=None, top=None, wspace=0.4, hspace=0.45
+        )
+        for label in ax.get_xticklabels():
+            label.set_rotation(90)
+        setSharedAxParameters(ax)
+    plt.show()
+
 
 def boxplotCategoric_vsNumeric(data, col_c, col_n):
     """This function is divided into 3 sections. First one is for only one cat variable, second is for 2 or 3, and the third is for cat variables above 3.
@@ -24,6 +74,7 @@ def boxplotCategoric_vsNumeric(data, col_c, col_n):
             plt.subplots_adjust(
                 left=None, bottom=None, right=None, top=None, wspace=0.4, hspace=0.45
             )
+            setSharedAxParameters(ax)
         plt.show()
 
     if len(col_c) <= 3 and len(col_c) > 1:
@@ -58,9 +109,11 @@ def boxplotCategoric_vsNumeric(data, col_c, col_n):
         # y-labels: in first column we want to show all the y-labels
         for ax, sets in zip(axs, xy_sets):
             ax[0].set_ylabel(sets[0][1])
+            setSharedAx_yParameters(ax[0])
         # x-labels: in last row we want to show all the x-labels
         for ax, xy_set in zip(axs[-1], xy_sets[-1]):
             ax.set_xlabel(xy_set[0])
+            setSharedAx_xParameters(ax)
 
         fig.align_labels()
         fig.tight_layout()
@@ -85,9 +138,116 @@ def boxplotCategoric_vsNumeric(data, col_c, col_n):
             # y-labels: in first column we want to show all the y-labels
             for ax, sets in zip(axs, xy_sets):
                 ax[0].set_ylabel(sets[1])
+            for ax in axs_flat:
+                setSharedAxParameters(ax)
             plt.subplots_adjust(
                 left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.45
             )
         plt.show()
-    else:
+    elif len(col_c) == 0:
         return "No categorical data"
+
+
+"""END Section with plot functions"""
+
+
+"""Testing"""
+
+# data = pd.read_csv(
+#     "https://raw.githubusercontent.com/CoreyMSchafer/code_snippets/master/Python/Matplotlib/10-Subplots/data.csv"
+# )
+
+# gender = [
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "m",
+# ]
+# have_pet = [
+#     "y",
+#     "y",
+#     "n",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "y",
+#     "f",
+#     "f",
+#     "y",
+#     "n",
+#     "n",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "m",
+#     "f",
+#     "f",
+#     "m",
+#     "m",
+#     "n",
+#     "m",
+#     "n",
+#     "y",
+# ]
+
+# data["Gender"] = gender  # Adding categorical data
+# data["Have_pet"] = have_pet  # Adding categorical data, again
+
+# data["Gender2"] = gender  # Adding categorical data
+# data["Have_pet2"] = have_pet  # Adding categorical data, again
+
+
+# numeric = [0, 1, 2, 3]
+# categoric = [4, 5, 6, 7]
+# n = data.iloc[:, numeric]
+# c = data.iloc[:, categoric]
+
+# boxplotCategoric_vsNumeric(data, c.columns, n.columns)
