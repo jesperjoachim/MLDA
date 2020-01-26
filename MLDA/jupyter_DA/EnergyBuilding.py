@@ -26,13 +26,20 @@ plots = 'on' # choose 'on' or 'off'
 # read the data
 data_input = pd.read_excel('/home/jesper/Work/MLDA_app/MLDA/input_data/ENB2012_data.xlsx')
 # data_input = pd.read_csv('/home/jesper/Work/MLDA_app/MLDA/input_data/Outlet_sales.csv')
-data_input.head(40)
+data_input.head()
 
 # column names
 for column in data_input.columns:
     print(column)
     
+Var_names = dict(X1='relative_compactness', X2='surface_area', X3='wall_area', X4='roof_area', X5='overall_height', X6='orientation', X7='glazing_area', X8='glazing_area_distribution', Y1='heating_load', Y2='cooling_load')
+Var_names_short = dict(X1='rel_compact', X2='surf_area', X3='wall_area', X4='roof_area', X5='height', X6='orientation', X7='glazing_area', X8='glaz_area_distrib', Y1='heat_load', Y2='cool_load')
+
 # If no 'column names' or 'wrong names' in data_input, changes these
+
+data_input.columns = [Var_names_short[key] for key in Var_names_short]
+data_input.head()
+
 # -
 
 # ## 0.1 Choosing the relevant variables
@@ -445,5 +452,10 @@ if plots == 'on' and show_this_plot == 'on':
 
 # # Training our model with the 'data' dataframe
 
-# To ML module
-data
+# +
+from MLDA.miscellaneous.save_and_load_files import load_object, save_object
+
+save_object(object_to_save=data, filename='energy_data')
+
+e_data = load_object('energy_data.sav')
+e_data
