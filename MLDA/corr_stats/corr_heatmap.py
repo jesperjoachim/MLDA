@@ -139,6 +139,20 @@ def findCorrSelectMethod(
     return corr_and_pvalues
 
 
+def idLabel(
+    cat_cols=None,
+    num_cols=None,
+    CI=None,
+    method_cc=None,
+    method_cn=None,
+    method_nn=None,
+):
+    cat_cols = cat_cols
+    num_cols = num_cols
+    entry_id = f"CATCOLS: {cat_cols} - NUMCOLS: {num_cols} - CI: {CI} - METHOD_CC: {method_cc} - METHOD_CN: {method_cn} - METHOD_NN: {method_nn}"
+    return entry_id
+
+
 def correlation(
     dataset,
     catcols,
@@ -151,9 +165,19 @@ def correlation(
     """Returns association strength matrix of any combination between numerical and categorical variables.
     Returns 2 matrices: one with corelation values and one with p-values"""
     # Arrange dataset so categoric columns are to the right
-
     dataset = dataset[catcols + numcols]
     columns = dataset.columns
+
+    # create id_label
+    entry_id = idLabel(
+        cat_cols=catcols,
+        num_cols=numcols,
+        CI=CI,
+        method_cc=method_cc,
+        method_cn=method_cn,
+        method_nn=method_nn,
+    )
+
     # constructing a square matrix and looping through each row and columns
     asso_matrix_corr = pd.DataFrame(index=columns, columns=columns)
     asso_matrix_p = pd.DataFrame(index=columns, columns=columns)
@@ -174,10 +198,12 @@ def correlation(
             asso_matrix_corr.iloc[j][i] = corr_and_pvalues[1][0]
             asso_matrix_p.iloc[i][j] = corr_and_pvalues[0][1]
             asso_matrix_p.iloc[j][i] = corr_and_pvalues[1][1]
-    return asso_matrix_corr, asso_matrix_p
+    return asso_matrix_corr, asso_matrix_p, entry_id
 
 
-# df_test = pd.read_excel("/home/jesper/Work/MLDA_app/MLDA/input_data/test_DF.xlsx")
+# df_test = pd.read_excel(
+#     "/home/jesper/Work/MLDA_app/MLDA/input_data/fortest_DF_shuf.xlsx"
+# )
 # # # Exercise
 # catcols = [
 #     "global_warm_risk",
@@ -203,17 +229,28 @@ def correlation(
 # print(actual[0])
 # print()
 # print(actual[1])
+# print()
+# print(actual[2])
 
 # print("hey")
 # data_input = pd.read_csv("/home/jesper/Work/macledan/input_files/data.csv")
-
 # numcols = [
-#     'Age',
-#  'Overall',
-#  'Potential',
-# 'Crossing','Finishing',  'ShortPassing',  'Dribbling','LongPassing', 'BallControl', 'Acceleration',
-#        'SprintSpeed', 'Agility',  'Stamina',
-#  'Value','Wage']
+#     "Age",
+#     "Overall",
+#     "Potential",
+#     "Crossing",
+#     "Finishing",
+#     "ShortPassing",
+#     "Dribbling",
+#     "LongPassing",
+#     "BallControl",
+#     "Acceleration",
+#     "SprintSpeed",
+#     "Agility",
+#     "Stamina",
+#     "Value",
+#     "Wage",
+# ]
 # numcols = []
 # catcols = ["Preferred Foot", "Position", "Body Type"]
 
@@ -221,3 +258,4 @@ def correlation(
 
 # actual = correlation(data, catcols, numcols, CI=1, method_cc="Asym")
 
+# print(actual)

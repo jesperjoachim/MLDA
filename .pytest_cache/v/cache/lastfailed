@@ -4,6 +4,9 @@
   "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFindCorrFunctions::test2_findCorr": true,
   "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFindCorrFunctions::test2_findCorrPvalBasedAndNot": true,
   "MLDA/corr_stats/tests/test_corr_heatmap.py::TestFunctions::test0_corrValue_output_is_list_with_double_tuple": true,
+  "MLDA/corr_stats/tests/test_rf_tail_interpolation.py::test_createLowestHighestValuesForLinRegr_gets_input_values_above_threshold_so_should_return_two_different_values_for_var_above_threshold": true,
+  "MLDA/corr_stats/tests/test_rf_tail_interpolation.py::test_createLowestHighestValuesForLinRegr_gets_input_values_below_threshold_so_should_return_value_twice_for_each_var": true,
+  "MLDA/corr_stats/tests/test_rf_tail_interpolation.py::test_findSlopes_returns_correct_slopes_and_df": true,
   "MLDA/corr_stats/tests/test_stat_functions.py::test_calcMeanAndStdDev_with_Asym_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender": true,
   "MLDA/corr_stats/tests/test_stat_functions.py::test_calcMeanAndStdDev_with_MIcat_returns_MeancorrVal_and_stdcorrVal_from_dftest_globalwarmrisk_gender": true,
   "MLDA/corr_stats/tests/test_stat_functions.py::test_cramersV_out_is_zero_when_crosstab_dim_is_below_2x2_for_testing_purpose_only": true

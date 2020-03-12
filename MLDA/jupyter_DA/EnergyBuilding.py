@@ -283,7 +283,7 @@ def pairPlotWithHue():
         sns.pairplot(data)
     plt.show();
         
-show_this_plot = 'on'
+show_this_plot = 'off'
     
 if plots == 'on' and show_this_plot == 'on':
    pairPlotWithHue()
@@ -381,7 +381,8 @@ def calcCorrelationsForHeatmaps():
     corr = correlation(data, catcols=c, numcols=n, CI=.1, method_cc='Asym', method_nn='Spearmann')
     return corr
 show_this_plot = 'on'
-    
+
+# Plotting
 if plots == 'on' and show_this_plot == 'on':
     corr = calcCorrelationsForHeatmaps()
     corr[0] # correlation values
@@ -455,7 +456,45 @@ if plots == 'on' and show_this_plot == 'on':
 # +
 from MLDA.miscellaneous.save_and_load_files import load_object, save_object
 
-save_object(object_to_save=data, filename='energy_data')
+# save_object(object_to_save=data, filename='energy_data')
 
 e_data = load_object('energy_data.sav')
 e_data
+# -
+
+# # Saving the results
+
+# ### Create DA dict with data_df and corresponding correlation and p-values. I.e creating a dict with the result of the analysis of the data.
+
+# +
+from MLDA.miscellaneous.save_and_load_files import load_object, save_object
+
+# create data analysis dict
+# da_dict = dict(id_label=corr[2], data=data, correlation=corr[0], p_values=corr[1]) # comment out when created and saved
+
+
+# save data analysis dict
+# save_object(object_to_save=da_dict, filename='da_dict_N1') # comment out when created and saved
+
+# load data analysis dict
+da_dict = load_object('da_dict_N1.sav')
+da_dict
+
+
+
+# +
+from MLDA.imports.DA_modules import *
+
+# e_data.describe()
+# e_data.info()
+
+# dir(e_data['surf_area'])
+# dir(e_data['surf_area'].value_counts())
+# e_data['surf_area'].value_counts()
+predict = 601
+e_data['surf_area'][e_data['surf_area']<predict].values.max()
+# e_data['surf_area'].values.min()
+# e_data['surf_area'].nsmallest()
+
+# for column in e_data.columns:
+#     e_data[column].value_counts()
