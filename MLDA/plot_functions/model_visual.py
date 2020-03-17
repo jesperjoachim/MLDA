@@ -1,10 +1,14 @@
 import copy
+import math
 import numpy as np
 import pandas as pd
 from MLDA.miscellaneous.save_and_load_files import load_object, save_object
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
+from yellowbrick.regressor import ResidualsPlot
+from yellowbrick.model_selection import LearningCurve
 
 
 # def varPropDict(xdata_names=None, x=None, x_steps=None, y=None, y_steps=None):
@@ -626,239 +630,210 @@ def validationPlot(
 """END Validating the generated data"""
 
 
-def findHighestFeatImportance(df_feat_imp=None, vars_chosen=None, var_candidates=None):
-    vars_chosen_list = [vars_chosen[var] for var in vars_chosen]
+"""Find Variables For Plot"""
+
+
+def findHighestFeatImportance(df_feat_imp=None, var_candidates=None):
+    """Function that returns the highest value from the feature importance df when only the 
+    var_candidates are left to choose from.
+    Input: 
+    df_feat_imp: single column df with feature importance of the vars
+    var_candidates: list with var_candidates to choose from
+    Output: string with index name of highest value.
+    """
+    # Find the column name of the feature importance df
     col_name = df_feat_imp.columns.to_list()[0]
+    # Selecting only the rows in df_feat_imp that are in var_candidates
     df_feat_imp = df_feat_imp.loc[var_candidates]
-    drop = [var for var in vars_chosen_list if var in df_feat_imp.columns.to_list()]
-    df_feat_imp.drop(drop, inplace=True)
+    # Using idxmax() to find the max value in the column with name 'col_name' and return the name of that column
     return df_feat_imp.loc[df_feat_imp[col_name].idxmax()].name
-
-
-dict_test = load_object(
-    "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
-)
-df_feat_imp = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["df_feat_imp"]
-vars_chosen = {"1": "surf_area", "2": "wall_area"}
-var_candidates = df_feat_imp.index
-
-imp = findHighestFeatImportance(
-    df_feat_imp=df_feat_imp, vars_chosen=vars_chosen, var_candidates=var_candidates
-)
-print(imp)
 
 
 def findCorrBelowLevelBetweenVars(
     df_corr=None, var_candidates=None, vars_chosen=None, level=None
 ):
+    """Function that returns list with correlation.
+    Input: 
+    df_corr: symmetrical df with intercorrelation values between vars
+    var_candidates: list with var_candidates to choose from
+    vars_chosen: dict with vars already chosen
+    level: correlation level to be below in order to pass
+    Output: list with vars that passes the level test.
+    """
+    # Convert vars_chosen from dict to list
     vars_chosen_list = [vars_chosen[var] for var in vars_chosen]
+    # Make df from df_corr but with rows and columns selected by var_candidates and vars_chosen_list, respectively.
+    # That's because we are only interested in the correlation value to the other vars for the vars we have already chosen
     df = df_corr.loc[var_candidates, vars_chosen_list]
+    # If we have a cell with "p > CI", i.e. low corr we replace this with a zero
     df.replace("p > CI", 0, inplace=True)
+    # Then we drop every cell that is below the specified correlation level, level
     df = df[(df[vars_chosen_list] < level) & (df[vars_chosen_list] > -1 * level)]
+    # Suppose we have 2 vars in vars_chosen. Then if var1 in df_corr passes the level for correlation
+    # but the other var does not, we have now nan value in the cell that did not pass the level test,
+    # so we drop that row by using dropna()
     df = df[vars_chosen_list].dropna()
-    return df.index.to_list()
+    if df.empty:
+        return f"var_candidates = {var_candidates}, vars_chosen_list = {vars_chosen_list} has no candidates that passes a level of {level}"
+    else:
+        return df.index.to_list()
 
 
 def screenForCorrLevelAndFeatImp(
     df_feat_imp=None, df_corr=None, var_candidates=None, vars_chosen=None, level=None
 ):
+    """Combines the functions findCorrBelowLevelBetweenVars and findHighestFeatImportance. I.e. first 
+    screening for correlation below level, second find the highest feat imp of the list passing the screening.
+    Input/Output: as for the two functions above.
+    """
+    # Screening: list with vars that has correlation below level
     below_level = findCorrBelowLevelBetweenVars(
         df_corr=df_corr,
         var_candidates=var_candidates,
         vars_chosen=vars_chosen,
         level=level,
     )
-    print(below_level)
+    # Check if below_level is empty - i.e. findCorrBelowLevelBetweenVars returns a string
+    if isinstance(below_level, str):
+        return below_level
+    # Find highest amongst below_level list
     most_important = findHighestFeatImportance(
-        df_feat_imp=df_feat_imp, vars_chosen=vars_chosen, var_candidates=below_level
+        df_feat_imp=df_feat_imp, var_candidates=below_level
     )
     return most_important
 
 
 def findVarsForPlot(
-    num_for_plot=None, xdata_names=None, df_corr=None, df_feat_imp=None
+    num_for_plot=None, xdata_names=None, df_corr=None, df_feat_imp=None, level=0.5
 ):
+    """Function that returns dict with most relevant vars to plot according to the following princip:
+    First pick the var with the highest feature importance, second: for this var find the correlation
+    level to the other vars, and pick the vars that are above the specified correlation level, third:
+    # from the list of vars above the specified correlation level choose the one with the highest feature 
+    importance. Now two vars has been picked. If a third one is needed (i.e. num_for_plot=3), it goes 
+    through second and step again but know with two vars to check for correlation to the other vars.
+    Input: 
+    num_for_plot: integer: 2 or 3
+    xdata_names: name of the vars to screen between, list or pandas Index
+    df_corr: symmetrical df with intercorrelation values between vars
+    df_feat_imp: single column df with feature importance of the vars
+    level: correlation level to be below in order to pass
+    Output:  dict with most relevant vars to plot.
+    """
     var_candidates = copy.deepcopy(xdata_names)
+    if isinstance(var_candidates, pd.Index):
+        var_candidates = var_candidates.to_list()
     vars_chosen = {}
     # Find first variable
     most_important = findHighestFeatImportance(
-        df_feat_imp=df_feat_imp, vars_chosen=vars_chosen, var_candidates=var_candidates
+        df_feat_imp=df_feat_imp, var_candidates=var_candidates
     )
     var_candidates.remove(most_important)
     vars_chosen["var1"] = most_important
     # Find second variable or second and third depending on num_for_plot
     for num in range(num_for_plot - 1):
-        print(num)
-        print(var_candidates)
-        print(vars_chosen)
-        print(most_important)
         most_important = screenForCorrLevelAndFeatImp(
             df_feat_imp=df_feat_imp,
             df_corr=df_corr,
             var_candidates=var_candidates,
             vars_chosen=vars_chosen,
-            level=0.5,
+            level=level,
         )
-        print(var_candidates)
-        print(vars_chosen)
-        print(most_important)
+        # Check if most_important is a string - i.e. no candidates passes the test
+        if "var_candidates =" in most_important:
+            return most_important
         var_candidates.remove(most_important)
         vars_chosen[f"var{num+2}"] = most_important
-        print(var_candidates)
-        print(vars_chosen)
-        print(most_important)
     return vars_chosen
 
 
-dict_test = load_object(
-    "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
-)
-df_feat_imp = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["df_feat_imp"]
-# print(col_name)
-# name_f = df_feat_imp.loc[df_feat_imp[col_name].idxmax()].name
-# print(name_f)
+"""END Find Variables For Plot"""
 
-da_dict = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_DA/da_dict_N1.sav")
-xdata_names = dict_test["N1"]["xdata_names"].to_list()
-df_corr = da_dict["correlation"]
-num_for_plot = 3
-
-var_chosen = findVarsForPlot(
-    num_for_plot=num_for_plot,
-    xdata_names=xdata_names,
-    df_corr=df_corr,
-    df_feat_imp=df_feat_imp,
-)
-print(var_chosen)
-
-# df_corr = df_corr.loc[xdata_names, xdata_names]
-# df_corr.replace("p > CI", 0, inplace=True)
-# df_corr = df_corr[
-#     (df_corr[["surf_area", "wall_area"]] < 0.5)
-#     & (df_corr[["surf_area", "wall_area"]] > -0.5)
-# ]
-# print(df_corr)
-# df_select = df_corr[["surf_area", "wall_area"]].dropna()
-# print(df_select)
-# df_select = df_select.drop(["surf_area", "wall_area"])
-# print(df_select)
-# print(df_select.index)
-
-var_candidates = copy.deepcopy(xdata_names)
-# var_chosen = {}
+"""Feature Importance"""
 
 
-# most_important = findHighestFeatImportance(
-#     df_feat_imp=df_feat_imp, var_candidates=var_candidates
-# )
-# print(most_important)
-# var_candidates.remove(most_important)
-# var_chosen["var1"] = most_important
-# var_chosen_list = [var_chosen[var] for var in var_chosen]
-# print(var_chosen_list)
-# print(var_candidates)
-# for num in range(num_for_plot - 1):
-#     most_important = screenForCorrLevelAndFeatImp(
-#         df_feat_imp=df_feat_imp,
-#         df_corr=df_corr,
-#         var_candidates=var_candidates,
-#         vars_chosen=var_chosen_list,
-#         level=0.5,
-#     )
-#     print(num)
-#     print(most_important)
-#     var_candidates.remove(most_important)
-#     var_chosen[f"var{num+2}"] = most_important
-# print(var_chosen)
+def showFeatureImportanceForModels(ML_dict=None):
+    ydata_names = ML_dict["ydata_names"].to_list()
+    nrows, ncols = math.ceil(len(ydata_names) / 2), len(ydata_names)
+    fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(14, 7), sharey=True)
+    df_sorted = [
+        ML_dict["Y"][y_name]["pred"]["forest"]["df_feat_imp"] for y_name in ydata_names
+    ]
+    for ydata_name, df, ax in zip(ydata_names, df_sorted, axs):
+        #     print('df.columns', df.columns, len(df.columns))
+        #     print('df.index', df.index, len(df.index))
+        #     print('df', df)
+        sns.barplot(y=df.columns[0], x=df.index, data=df, ax=ax)
+        ax.tick_params(axis="both", colors="b", labelsize=9)
+        for item in ax.get_xticklabels():
+            item.set_rotation(45)
+    # fig, axs = plt.subplots(figsize=(10,7))
 
-# value = findCorrBelowLevelBetweenVars(
-#     df_corr=df_corr,
-#     var_candidates=["height", "glazing_area", "glaz_area_distrib"],
-#     vars_chosen=["wall_area"],
-#     level=0.9,
-# )
-# select1 = df_corr[var_chosen_list][df_corr[var_chosen_list] == "p > CI"].index
-# select2 = df_corr[var_chosen_list][
-#     (df_corr[var_chosen_list] < 0.5) | (df_corr[var_chosen_list] == "p < CI")
-# ]
-
-# print(select1)
-
-#     print(df_corr.loc[df_corr[var].idxmax()].name)
-
-# print(var_chosen)
+    # print(len(df_sorted[0].columns), df_sorted[0])
+    # sns.barplot(y=df_sorted[0].columns, x=df_sorted[0].index, data=df_sorted[0], ax=axs)
+    fig.suptitle("Feature Importance", fontsize=25, color="b")
+    fig.show()
 
 
-# print(da_dict["correlation"].loc[xdata_names, xdata_names])
-# most_imp =
-
-xdata_numpy = dict_test["N1"]["X"]["X_train"]
-predictor = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["predictor"]
-predictor_object = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["pred_object"]
-df_xdata = pd.DataFrame(data=xdata_numpy, columns=xdata_names)
-to_predict = {
-    "glaz_area_distrib": 0,
-    "glazing_area": 0,
-    "height": 3.5,
-    "roof_area": 220,
-    "surf_area": 686,
-    "wall_area": 245,
-}
-
-dict_min = {name: df_xdata[name].min() for name in to_predict}
-dict_max = {name: df_xdata[name].max() for name in to_predict}
-dict_namesbounds = {
-    name: [df_xdata[name].min(), df_xdata[name].max()] for name in to_predict
-}
-names_and_points = makePointsForXandY(
-    df_xdata=df_xdata, xvar_str="height", yvar_str="roof_area"
-)
-
-X, Y, x_points, y_points = meshgrid(
-    xvar_str="height", yvar_str="roof_area", names_and_points=names_and_points
-)
-
-array = makeAndCollectArrays(
-    xvar_str="height",
-    yvar_str="roof_area",
-    X=X,
-    Y=Y,
-    x_points=x_points,
-    y_points=y_points,
-    xdata_names=xdata_names,
-    dict_namesvalues=to_predict,
-)
-
-x_points, y_points, Z = xyZ_forSurfaceplot(
-    predictor=predictor,
-    dict_namesbounds=dict_namesbounds,
-    df_xdata=df_xdata,
-    dict_namesvalues=to_predict,
-    xvar_str="height",
-    yvar_str="roof_area",
-)
-
-x_points, y_points, num_frames, Z_frames_dict = forAnimationPlot(
-    predictor=predictor,
-    dict_namesbounds=dict_namesbounds,
-    dict_namesvalues=to_predict,
-    df_xdata=df_xdata,
-    xvar_str="height",
-    yvar_str="roof_area",
-    frame_var_str="wall_area",
-    reshape_transpose=True,
-)
-
-# print(x_points, y_points, num_frames, Z_frames_dict)
+"""END Feature Importance"""
+# ML_dictEN1 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN1.sav")
 
 
-# validationPlot(
-#     vars=["height", "roof_area", "wall_area"],
-#     df_xdata=df_xdata,
-#     dict_namesvalues=to_predict,
-#     dict_namesbounds=dict_namesbounds,
-#     levels=[0, 1],
-#     level_vars=["roof_area", "wall_area"],
-#     predictor=predictor,
-# )
+# showFeatureImportance(ML_dict=ML_dictEN1)
 
+"""Residuals"""
+
+# Instantiate the visualizer and use the ransac instance from the linear model
+def showResidualsForModels(ML_dict=None):
+    model_names = ML_dict["models"]
+    ydata_names = ML_dict["ydata_names"].to_list()
+    Xtrain = ML_dict["X"]["X_train"]
+    Xtest = ML_dict["X"]["X_test"]
+    ncols = len(model_names)
+    for yname in ydata_names:
+        fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(16, 12), sharey=True)
+        for ax, model in zip(axs, model_names):
+            predictor = ML_dict["Y"][yname]["pred"][model]["predictor"]
+            vis_resid = ResidualsPlot(ax=ax, model=predictor)
+            Ytrain = ML_dict["Y"][yname]["actual"]["train"]
+            Ytest = ML_dict["Y"][yname]["actual"]["test"]
+            vis_resid.fit(X=Xtrain, y=Ytrain)  # Fit the training data to the model
+            vis_resid.score(X=Xtest, y=Ytest)
+            ax.tick_params(axis="both", colors="b", labelsize=15)
+            ax.set_ylabel(ylabel="Residuals", color="b")
+        fig.suptitle(yname, fontsize=20, color="b")
+
+        vis_resid.show()
+
+
+"""END Residuals"""
+
+
+"""Learning Curve"""
+
+
+def showLearningCurveForModels(ML_dict=None):
+    import warnings
+
+    warnings.filterwarnings("ignore")
+    Xtrain = ML_dict["X"]["X_train"]
+    ynames = ML_dict["ydata_names"]
+    models = ML_dict["models"]
+    ncols = len(models)
+    model_labels = [key for key in ML_dict["Y"]["heat_load"]["pred"]]
+    for yname in ynames:
+        fig, axs = plt.subplots(nrows=1, ncols=ncols, sharey=True, figsize=(16, 9))
+        model_labels = [label for label in ML_dict["Y"][yname]["pred"]]
+        for model, model_label, ax in zip(models, model_labels, axs):
+            Ytrain = ML_dict["Y"][yname]["actual"]["train"]
+            model = ML_dict["Y"][yname]["pred"][model]["pred_object"]
+            vis_learn_curve = LearningCurve(model, scoring="r2", ax=ax)
+            vis_learn_curve.fit(Xtrain, Ytrain)
+            ax.tick_params(axis="both", colors="b", labelsize=15)
+            ax.set_title(f"{model_label}", color="b")
+            ax.set_ylabel(ylabel=f"{model_label}", color="b")
+        fig.suptitle(yname, fontsize=20, color="b")
+    vis_learn_curve.show()
+
+
+"""END Learning Curve"""
