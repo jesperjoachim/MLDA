@@ -106,6 +106,14 @@ def addFeatImpToDict(ML_dict=None):
 
 """END Adding stuff to ML_dict"""
 
+
+def createNamesBoundsDict(df_xdata=None):
+    names_bounds = {}
+    for name in df_xdata.columns:
+        names_bounds[name] = [df_xdata[name].min(), df_xdata[name].max()]
+    return names_bounds
+
+
 # ML_dict = splitDataAndAddToMLDict(
 #     df_xdata=xdata, df_ydata=ydata, ML_dict=ML_dict, models=models, test_size=test_size
 # )

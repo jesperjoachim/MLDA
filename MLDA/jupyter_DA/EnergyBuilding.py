@@ -33,7 +33,7 @@ for column in data_input.columns:
     print(column)
     
 Var_names = dict(X1='relative_compactness', X2='surface_area', X3='wall_area', X4='roof_area', X5='overall_height', X6='orientation', X7='glazing_area', X8='glazing_area_distribution', Y1='heating_load', Y2='cooling_load')
-Var_names_short = dict(X1='rel_compact', X2='surf_area', X3='wall_area', X4='roof_area', X5='height', X6='orientation', X7='glazing_area', X8='glaz_area_distrib', Y1='heat_load', Y2='cool_load')
+Var_names_short = dict(X1='rel_compact', X2='surf_area', X3='wall_area', X4='roof_area', X5='height', X6='orientation', X7='glazing_area', X8='distrib_glaz_area', Y1='heat_load', Y2='cool_load')
 
 # If no 'column names' or 'wrong names' in data_input, changes these
 
@@ -42,12 +42,21 @@ data_input.head()
 
 # -
 
-# ## 0.1 Choosing the relevant variables
+# ## 0.1a Choosing the relevant variables
 
 data_input.head() # Columns to choose from
 choose_var = [0,1,2,3,4,5,6,7,8,9] # First column: 0
 data = data_input.iloc[:, choose_var]
 data.head(15)
+
+# ## 0.1b Adding combination of variables
+
+data['2xroof+wall'] = 2*data['roof_area'] + data['wall_area']
+data
+test_list=data.columns.to_list()
+test_list.append(test_list.pop(test_list.index('heat_load')))
+test_list.append(test_list.pop(test_list.index('cool_load')))
+test_list
 
 # + [markdown] hide_input=true
 # ## 0.2 Separating data in cat/num classes and x/y classes, and a combination of these
@@ -283,7 +292,7 @@ def pairPlotWithHue():
         sns.pairplot(data)
     plt.show();
         
-show_this_plot = 'off'
+show_this_plot = 'on'
     
 if plots == 'on' and show_this_plot == 'on':
    pairPlotWithHue()

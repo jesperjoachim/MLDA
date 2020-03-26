@@ -258,31 +258,54 @@ def refineRF_PredictionByInterpolation(
     return predict_Y[0][0]
 
 
-# Exercise
-dict_test = load_object(
-    "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
-)
-xdata_names = dict_test["N1"]["xdata_names"]
-xdata_numpy = dict_test["N1"]["X"]["X_train"]
-to_predict = {
-    "glaz_area_distrib": 0.0,
-    "glazing_area": 0.0,
-    "height": 4.5,
-    "roof_area": 220.5,
-    "surf_area": 686.0,
-    "wall_area": 245.0,
-}
-predictor = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["predictor"]
+"""Not Used"""
 
-actual = refineRF_PredictionByInterpolation(
-    xdata_names=xdata_names,
-    xdata_numpy=xdata_numpy,
-    to_predict_dict=to_predict,
-    threshold=0.1,
-    predictor=predictor,
-)
 
-print(actual)
+def findSlopeSingleVar(df_xdata_regr=None, predictor=None, var=None):
+    """Find slope for when one var has two different values, all other vars have same values.
+     Using the adaptable function f."""
+    # we copy df_xdata, since now we add Y to the dataframe
+    df_regr = df_xdata_regr.copy()
+    # Calc Y by applying predictor to x array
+    df_regr["Y"] = df_regr[df_xdata_regr.columns].apply(f, args=(predictor,), axis=1)
+    # Since we only find the slope for a single value of the x values we
+    # shrink the df to only include this x
+    df_regr["X"] = df_regr[var]
+    # Convert to numpy
+    X = df_regr["X"].to_numpy().reshape(-1, 1)
+    Y = df_regr[["Y"]].to_numpy()
+    # Make regression
+    model = LinearRegression().fit(X, Y)
+    return model.coef_  # return slope of single xvar
+
+
+# # Exercise
+# dict_test = load_object(
+#     "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
+# )
+# xdata_names = dict_test["N1"]["xdata_names"]
+# xdata_numpy = dict_test["N1"]["X"]["X_train"]
+# to_predict = {
+#     "glaz_area_distrib": 0.0,
+#     "glazing_area": 0.0,
+#     "height": 4.5,
+#     "roof_area": 220.5,
+#     "surf_area": 686.0,
+#     "wall_area": 245.0,
+# }
+# predictor = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["predictor"]
+
+# actual = refineRF_PredictionByInterpolation(
+#     xdata_names=xdata_names,
+#     xdata_numpy=xdata_numpy,
+#     to_predict_dict=to_predict,
+#     threshold=0.1,
+#     predictor=predictor,
+# )
+
+# print(actual)
+
+
 # dict_test = load_object(
 #     "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
 # )
