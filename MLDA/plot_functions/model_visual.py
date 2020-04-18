@@ -10,51 +10,76 @@ import plotly.graph_objects as go
 from yellowbrick.regressor import ResidualsPlot
 from yellowbrick.model_selection import LearningCurve
 
-
-# def varPropDict(xdata_names=None, x=None, x_steps=None, y=None, y_steps=None):
-#     """To keep track of the assigned properties we create a var_prop dict
-#     Output example: {'X2': ['x', 10], 'X3': ['value', None], 'X4': ['y', 15], 'X5': ['value', None], 'X6': ['value', None],
-#     'X7': ['value', None], 'X8': ['value', None]}
-#     """
-#     var_prop = {}
-#     for name in xdata_names:
-#         # if name == x means: if the name is equal to the str we assigned to x
-#         if name == x_var:
-#             var_prop[name] = ["x", x_steps]
-#         elif name == y:
-#             var_prop[name] = ["y", y_steps]
-#         else:
-#             var_prop[name] = ["value", None]  # typically 'value' is the opt_value
-#     return var_prop
+from MLDA.ML_functions.rf_tail_interpolation import (
+    randomForestPredictorWithInterpolation,
+)
 
 
-def makeLinspace(var_prop=None, dict_namesbounds=None):
-    """Based on var_prop we can now create a names_and_linspace dict which creates a linspace for x and y
+def checkTypeOfObject(object_to_check, check_for):
+    if isinstance(object_to_check, check_for):
+        return True
+    else:
+        return False
+
+
+def makeLinspace(dict_namesbounds=None, var=None, num_points=None):
+    linspace = np.linspace(
+        dict_namesbounds[var][0], dict_namesbounds[var][1], num_points
+    )
+    return linspace
+
+
+def makeNamesLinspaceDict(dict_namesbounds=None, vars=None, num_points_list=None):
+    """Create a names_and_linspace dict with as many key: value pairs as entries in vars/num_points_list.
     Output example: {'X2': array([514.5, 661.5, 808.5]), 'X4': array([110.25  , 137.8125, 165.375 , 192.9375, 220.5   ])}
+    Input: 
+    vars: list with vars
+    num_points_list: list with number of point for each var
+    Output:
+    dict with names and points as np arrays
     """
-    names_and_linspace = {}
-    for key in var_prop:
-        if var_prop[key][0] == "x":  # I.e if we have assigned x to this var, then:
-            # add an entry to names_and_linspace with a linspace with steps as specified above
-            names_and_linspace[key] = np.linspace(
-                dict_namesbounds[key][0], dict_namesbounds[key][1], var_prop[key][1]
+    # First checking the input type of vars and num_points_list is correct
+    input_check1, input_check2 = (
+        checkTypeOfObject(vars, list),
+        checkTypeOfObject(num_points_list, list),
+    )
+    if not (input_check1 and input_check2):
+        return f"wrong input type for either vars or num_points_list"
+    else:
+        names_and_linspace = {}
+        for var, num_points in zip(vars, num_points_list):
+            linspace = makeLinspace(
+                dict_namesbounds=dict_namesbounds, var=var, num_points=num_points
             )
-        elif var_prop[key][0] == "y":
-            names_and_linspace[key] = np.linspace(
-                dict_namesbounds[key][0], dict_namesbounds[key][1], var_prop[key][1]
-            )
-    return names_and_linspace
+            names_and_linspace[var] = linspace
+        return names_and_linspace
+
+
+def makeLinspaceForXandY(
+    dict_namesbounds=None,
+    xvar_str=None,
+    yvar_str=None,
+    num_xpoints=None,
+    num_ypoints=None,
+):
+    vars, num_points_list = [xvar_str, yvar_str], [num_xpoints, num_ypoints]
+    names_and_linspaceXY = makeNamesLinspaceDict(
+        dict_namesbounds=dict_namesbounds, vars=vars, num_points_list=num_points_list
+    )
+    return names_and_linspaceXY
 
 
 def makePointsBasedOnDFxdata(df_xdata=None, var_str=None):
-    # all unique train values of var_str, sorted and as array
+    """returns all unique train values of var_str, sorted and as array"""
     return df_xdata[var_str].drop_duplicates().sort_values().to_numpy()
 
 
 def makePointsForXandY(df_xdata, xvar_str, yvar_str):
 
     """Function that makes a dict with names and points which can be passed to the meshgrid function.
-    The array is made from the train data points.
+    The array is made from the train data points. This means that every data point for x and y becomes
+    a point on the plot. So for many unique values this is not a suitable method since the number of
+    points gets very high and thus calc of plot becomes slow.
     Input: 
     df_xdata: a dataframe with the train xdata
     xvar, yvar: strings with x and y variable names,
@@ -113,84 +138,136 @@ def makeAndCollectArrays(
     return array
 
 
-# def makeAndCollectArrays(
-#     var_prop=None,
-#     X=None,
-#     Y=None,
-#     x_lin=None,
-#     y_lin=None,
-#     xdata_names=None,
-#     dict_namesvalues=None,
-# ):
-#     """Approach: array for x and y assign X and Y from meshgrid, else assign an array with np.full()"""
-#     collect_arrays = {}
-#     for key in var_prop:
-#         if var_prop[key][0] == "x":
-#             collect_arrays[key] = X
-#         elif var_prop[key][0] == "y":
-#             collect_arrays[key] = Y
-#         else:
-#             collect_arrays[key] = np.full(
-#                 (len(y_lin), len(x_lin)), dict_namesvalues[key]
-#             )
-#     # Now ordering the arrays in respect to xdata_names
-#     array = [collect_arrays[key] for key in xdata_names]
-#     array = np.array(array)
-#     return array
-
-
 def reshapeAndTranspose(array=None):
     """Reshaping array from (n_features, X_rows, X_cols) to (n_features, X_rows * X_cols)"""
     num_feat, X_rows, X_cols = array.shape
     array = array.reshape(num_feat, X_rows * X_cols)
     # # Transposing array from (n_features, X_rows * X_cols) to (X_rows * X_cols, n_features)
     array_T = np.transpose(array)
+    # print(array)
+    # print(array_T)
     return array_T
 
 
-# def f(x):
-#     return x[0] + x[1] + x[2] + x[3] + x[4] + x[5]
-
-
-def makeZ(array=None, x_points=None, y_points=None, predictor=None):
-    """Generate Z by passing arrays to predictor/function"""
-    Z = predictor.predict((array))
+def reshapeZ(Z=None, x_points=None, y_points=None):
     # Reshaping Z, so it's x part - i.e cols in Z.reshape(rows, cols) - macthes numbers of x_points
     # and rows macthes numbers of y_points
-    Z = Z.reshape(len(y_points), len(x_points))
+    return Z.reshape(len(y_points), len(x_points))
+
+
+def calcZ_withRFpredictor(array=None, predictor=None, x_points=None, y_points=None):
+    Z = predictor.predict((array))
+    # print(Z.shape)
+    Z = reshapeZ(Z=Z, x_points=x_points, y_points=y_points)
+    return Z
+
+
+def calcZ_withRF_interpolation(
+    prediction_array=None,
+    x_points=None,
+    y_points=None,
+    ML_dict=None,
+    yvar=None,
+    criteria_method=None,
+    criteria_method_boolean_map=None,
+    min_points=None,
+    min_points_boolean_map=None,
+    min_percentage=None,
+    min_percentage_boolean_map=None,
+    area_frac_to_search_points=None,
+    area_frac_to_search_points_boolean_map=None,
+):
+
+    Z = randomForestPredictorWithInterpolation(
+        prediction_array=prediction_array,
+        ML_dict=ML_dict,
+        yvar=yvar,
+        criteria_method=criteria_method,
+        criteria_method_boolean_map=criteria_method_boolean_map,
+        min_points=min_points,
+        min_points_boolean_map=min_points_boolean_map,
+        min_percentage=min_percentage,
+        min_percentage_boolean_map=min_percentage_boolean_map,
+        area_frac_to_search_points=area_frac_to_search_points,
+        area_frac_to_search_points_boolean_map=area_frac_to_search_points_boolean_map,
+    )
+    # print("Z.shape", Z.shape)
+    Z = reshapeZ(Z=Z, x_points=x_points, y_points=y_points)
     return Z
 
 
 def xyZ_forSurfaceplot(
-    predictor=None,
-    dict_namesbounds=None,
-    dict_namesvalues=None,
-    df_xdata=None,
+    num_xy_points="auto",
+    ML_dict=None,
+    predictor_var=None,
     xvar_str=None,
     yvar_str=None,
+    num_xpoints=None,
+    num_ypoints=None,
+    criteria_method=None,
+    min_points=None,
+    min_percentage=None,
+    area_frac_to_search_points_boolean_map=0.01,
+    criteria_method_boolean_map="default",
+    area_frac_to_search_points=1,
+    dict_namesvalues=None,
     reshape_transpose=True,
 ):
     """
-    Approach: in this function we collect many data and calc Z
+    Approach: in this function we collect data and calc Z
 
-    Steps: 1) Use dict to assign x, y to vars; 2) make linspace for x, y; 3a) meshgrid; 3b) make and collect arrays for all feat/vars;
-    4) reshape and transpose array; 5) generate Z
     Inputs: 
-    predictor: choose function, eg. f;  
+    Two scenarios: either num_xy_points="auto" or num_xy_points="manual". 
+    
+    Input requirements both scenarios:
+    xvar/yvar: choose the two independent var (x, y) you want to plot the dependent var (Z) as function of
+    num_xy_points: can be either 'auto' or 'manual'. If auto it finds number of points from funtion makePointsForXandY, not 
+    recommended if many unique values exist for x or y. If many unique values exist for x or y choose manual and select number
+    of points for x and y in the parameters num_xpoints and num_ypoints, respectively;
+    else set to None;
+    predictor_var: (str) the dependent var for the predictor;
+    reshape_transpose=True: if using RF_regressor;
+    
+    Using num_xy_points="auto":
+    num_xpoints and num_ypoints: NOT NEEDED, it find points itself;
+
+    Using num_xy_points="manual":
+    num_xpoints and num_ypoints: choose a value for num_x_points and num_y_points, 
+
+    Output: x_points, y_points, Z. That is points to plot.
+
+    Steps: 1) Assigning variables; 2) make linspace for x, y - if num_xy_points == "auto" is uses df_xdata, else choose manually;
+    3a) meshgrid; 3b) make and collect arrays for all feat/vars; 4) reshape and transpose array; 5) generate Z
     
     """
-    xdata_names = df_xdata.columns  # [feature2, feature3, feature4, ....feature N]
-    # Assign the property to each of the variables
-
     # step 1
-    vars_points_dict = makePointsForXandY(
-        df_xdata=df_xdata, xvar_str=xvar_str, yvar_str=yvar_str
-    )
+    xdata_names, df_data = ML_dict["xdata_names"], ML_dict["df_data"]
+    xdata, dict_namesbounds = df_data[xdata_names], ML_dict["X_bounds"]
+    RF_predictor = ML_dict["Y"][predictor_var]["pred"]["forest"]["predictor"]
+
     # step 2
+    flag_auto = False  # parameter used to decide how to calc Z
+    if num_xy_points == "auto":
+        flag_auto = True
+        vars_points_dict = makePointsForXandY(
+            df_xdata=xdata, xvar_str=xvar_str, yvar_str=yvar_str
+        )
+        # print(vars_points_dict)
+    elif num_xy_points == "manual":
+        vars_points_dict = makeLinspaceForXandY(
+            dict_namesbounds=dict_namesbounds,
+            xvar_str=xvar_str,
+            yvar_str=yvar_str,
+            num_xpoints=num_xpoints,
+            num_ypoints=num_ypoints,
+        )
+        # print(vars_points_dict)
+
+    # step 3a
     X, Y, x_points, y_points = meshgrid(
         xvar_str=xvar_str, yvar_str=yvar_str, names_and_points=vars_points_dict
     )
-    # step 3
+    # step 3b
     array = makeAndCollectArrays(
         xvar_str=xvar_str,
         yvar_str=yvar_str,
@@ -203,9 +280,140 @@ def xyZ_forSurfaceplot(
     )
     # step 4
     array = reshapeAndTranspose(array)
+
     # step 5
-    Z = makeZ(array=array, x_points=x_points, y_points=y_points, predictor=predictor)
-    return x_points, y_points, Z
+    if flag_auto:
+        Z = calcZ_withRFpredictor(
+            array=array, predictor=RF_predictor, x_points=x_points, y_points=y_points
+        )
+        # Z = predictor.predict((array))
+    elif not flag_auto:
+        # print()
+        # print("array", array.tolist())
+        # print()
+        Z = calcZ_withRF_interpolation(
+            prediction_array=array,
+            x_points=x_points,
+            y_points=y_points,
+            ML_dict=ML_dict,
+            yvar=predictor_var,
+            criteria_method=criteria_method,
+            min_points=min_points,
+            area_frac_to_search_points_boolean_map=area_frac_to_search_points_boolean_map,
+            criteria_method_boolean_map=criteria_method_boolean_map,
+            area_frac_to_search_points=area_frac_to_search_points,
+        )
+    return x_points, y_points, Z, array.tolist()
+
+
+# Loading data 2
+ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
+xdata_names = ML_dictEN2["xdata_names"]
+xdata = ML_dictEN2["df_data"][xdata_names]
+# print(xdata)
+names_bounds = ML_dictEN2["X_bounds"]
+names_means = ML_dictEN2["X_means"]
+# print(names_bounds)
+names_values = {
+    "wall_area": 245,
+    "roof_area": 120.5,
+    "orientation": 4,
+    "glazing_area": 0,
+    "glaz_area_distrib": 0,
+}
+# rf_predictor = ML_dictEN2["Y"]["heat_load"]["pred"]["forest"]["predictor"]
+# print(ML_dictEN2.keys())
+
+# x_lin, y_lin, Z, array = xyZ_forSurfaceplot(
+#     num_xy_points="auto",
+#     ML_dict=ML_dictEN2,
+#     predictor_var="heat_load",
+#     xvar_str="roof_area",
+#     yvar_str="wall_area",
+#     dict_namesvalues=names_values,
+# )
+# # Loading data 2
+# ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
+# ML_dict = ML_dictEN2
+
+# # step 1
+# xdata_names, df_data = ML_dict["xdata_names"], ML_dict["df_data"]
+# xdata, dict_namesbounds = df_data[xdata_names], ML_dict["X_bounds"]
+# predictor_var = "heat_load"
+# RF_predictor = ML_dict["Y"][predictor_var]["pred"]["forest"]["predictor"]
+# xvar_str = "roof_area"
+# yvar_str = "wall_area"
+# names_values = {
+#     "wall_area": 245,
+#     "roof_area": 120.5,
+#     "orientation": 4,
+#     "glazing_area": 0,
+#     "glaz_area_distrib": 0,
+# }
+# dict_namesvalues = names_values
+# num_xpoints, num_ypoints = 4, 4
+
+# # step 2
+# num_xy_points = "auto"
+# flag_auto = False  # parameter used to decide how to calc Z
+# if num_xy_points == "auto":
+#     flag_auto = True
+#     vars_points_dict = makePointsForXandY(
+#         df_xdata=xdata, xvar_str=xvar_str, yvar_str=yvar_str
+#     )
+#     # print(vars_points_dict)
+# elif num_xy_points == "manual":
+#     vars_points_dict = makeLinspaceForXandY(
+#         dict_namesbounds=dict_namesbounds,
+#         xvar_str=xvar_str,
+#         yvar_str=yvar_str,
+#         num_xpoints=num_xpoints,
+#         num_ypoints=num_ypoints,
+#     )
+#     # print(vars_points_dict)
+
+# # step 3a
+# X, Y, x_points, y_points = meshgrid(
+#     xvar_str=xvar_str, yvar_str=yvar_str, names_and_points=vars_points_dict
+# )
+# # step 3b
+# array = makeAndCollectArrays(
+#     xvar_str=xvar_str,
+#     yvar_str=yvar_str,
+#     X=X,
+#     Y=Y,
+#     x_points=x_points,
+#     y_points=y_points,
+#     xdata_names=xdata_names,
+#     dict_namesvalues=dict_namesvalues,
+# )
+# # step 4
+# print(array)
+# print()
+# array = reshapeAndTranspose(array)
+# print(array)
+# print()
+
+# Zrf = calcZ_withRFpredictor(
+#     array=array, predictor=RF_predictor, x_points=x_points, y_points=y_points
+# )
+
+# Zinterp = calcZ_withRF_interpolation(
+#     prediction_array=array,
+#     x_points=x_points,
+#     y_points=y_points,
+#     ML_dict=ML_dictEN2,
+#     yvar="heat_load",
+#     criteria_method="num_points",
+#     min_points=2,
+#     area_frac_to_search_points_boolean_map=0.01,
+#     criteria_method_boolean_map="default",
+#     area_frac_to_search_points=1,
+# )
+
+# print(Zrf)
+# print()
+# print(Zinterp)
 
 
 def surfacePlotly(
@@ -221,15 +429,15 @@ def surfacePlotly(
     fig = go.Figure(
         data=[
             go.Surface(z=Z_array, x=x_points, y=y_points),
-            go.Scatter3d(
-                x=x_opt,
-                y=y_opt,
-                z=z_opt,
-                mode="markers+text",
-                name="Markers and Text",
-                text=["Text D"],
-                textposition="bottom center",
-            ),
+            # go.Scatter3d(
+            #     x=x_opt,
+            #     y=y_opt,
+            #     z=z_opt,
+            #     mode="markers+text",
+            #     name="Markers and Text",
+            #     text=["Text D"],
+            #     textposition="bottom center",
+            # ),
         ]
     )
     # Layout
@@ -244,23 +452,84 @@ def surfacePlotly(
             ),
             xaxis=dict(title=f"{xvar_str}"),
             yaxis=dict(title=f"{yvar_str}"),
-            aspectratio=dict(x=1, y=1, z=1),
+            # aspectratio=dict(x=1, y=1, z=1),
         ),
     )
     fig.show()
 
 
-# print(x_points, y_points, Z)
-# surfacePlotly(
-#     x_points=x_points,
-#     y_points=y_points,
-#     Z_array=Z,
-#     xvar_str="height",
-#     yvar_str="roof_area",
-#     x_opt=(3.5,),
-#     y_opt=(220.5,),
-#     z_opt=(6.048,),
+x_lin, y_lin, Z, array_list = xyZ_forSurfaceplot(
+    num_xy_points="auto",
+    ML_dict=ML_dictEN2,
+    predictor_var="heat_load",
+    xvar_str="roof_area",
+    yvar_str="wall_area",
+    criteria_method="default",
+    dict_namesvalues=names_values,
+)
+
+surfacePlotly(
+    x_points=x_lin,
+    y_points=y_lin,
+    Z_array=Z,
+    xvar_str="roof_area",
+    yvar_str="wall_area",
+)
+
+# print(x_lin)
+# print()
+# print(y_lin)
+# print()
+# print(Z)
+
+
+x_lin, y_lin, Z, array_list = xyZ_forSurfaceplot(
+    num_xy_points="manual",
+    num_xpoints=30,
+    num_ypoints=30,
+    ML_dict=ML_dictEN2,
+    predictor_var="heat_load",
+    xvar_str="roof_area",
+    yvar_str="wall_area",
+    criteria_method="default",
+    dict_namesvalues=names_values,
+)
+
+surfacePlotly(
+    x_points=x_lin,
+    y_points=y_lin,
+    Z_array=Z,
+    xvar_str="roof_area",
+    yvar_str="wall_area",
+)
+
+# print(x_lin)
+# print()
+# print(y_lin)
+# print()
+# print(Z)
+
+
+# x_lin, y_lin, Z = xyZ_forSurfaceplot(
+#     num_xy_points="manual",
+#     ML_dict=ML_dictEN2,
+#     predictor_var="heat_load",
+#     num_xpoints=10,
+#     num_ypoints=15,
+#     xvar_str="roof_area",
+#     yvar_str="wall_area",
+#     dict_namesvalues=names_values,
 # )
+
+
+# surfacePlotly(
+#     x_points=x_lin,
+#     y_points=y_lin,
+#     Z_array=Z,
+#     xvar_str="roof_area",
+#     yvar_str="wall_area",
+# )
+
 
 """Creating animation plot"""
 
