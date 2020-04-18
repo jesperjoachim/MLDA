@@ -428,6 +428,37 @@ def makeXdeltaListAndXAboveLowbounds(bounds_array=None, prediction_array=None):
 
 
 def makeInterpolation(bounds_array=None, prediction_array=None, predictor=None):
+    """
+    In this function we make the interpolation calculations. First we retrieve the relevant data for the calculations.
+    
+    Retrieve the relevant data:
+    Xdelta_list and Xabove_lowbounds which is found by makeXdeltaListAndXAboveLowbounds. And Xarray_for_interpolation by makeXarrayForInterpolationPredictions.
+
+    Preparing data for interpolation calculations:
+    Xarray_for_interpolation contains an array with the shape: (num_predictions * 2**num_feat, num_feat). For each individual prediction in prediction_array 
+    (e.g. a individual prediction could be: [3.5, 14, 51]) the Xarray_for_interpolation contains 2**num_feat single row arrays with all combinations of the
+    lower/higher points. The 2**num_feat single row arrays for each individual prediction lay on top of each other, the first prediction at the top followed
+    by the second and so forth. So if we pass these values: [[3.5, 14, 51], [3.1, 12, 51], [3., 10, 56]] to the prediction_array we would have a 
+    Xarray_for_interpolation with 24 rows (num_predictions * 2**num_feat) each row having 3 values. 
+    Now passing the values in Xarray_for_interpolation to the predictor then gives num_predictions * 2**num_feat prediction values (Y). 
+    Next we reshape and transpose Y so Y now have this shape: (2**num_feat, num_predictions). Which given the ex. above would give a 8 rows and 3 columns shape.
+
+    Interpolation calculations:
+    For each feature we now cut the length of Y by a factor of 2 by interpolate the first half of Y with the second half. Y contains values in it's 
+    first half that differs from the second half due to the difference in the first feature. So if a the first value in row one in Y's first half is 20 
+    (where we have feature one equal to 3) and the corresponding first value in row one in Y's second half is 30 (where we have feature one equal to 4) 
+    and we have the feature value being 3.5 we can now make the first feature interpolation by: Ynext = Y_1st_half + (Ydelta / rowXdelta) * rowXabove. 
+    And the same for the next feature by cut the length of Y by a factor of 2 again. When no more features we end up with a single interpolation value
+    for each individual prediction in prediction_array. E.g [29,31,30]. The values having been interpolated for all features.
+
+    Input: 
+    bounds_array: type: list
+    prediction_array: type: list or numpy array. Array to make prediction on. 
+    predictor: type: see randomForestInterpolation
+
+    Output: type: numpy array. Array with interpolated prediction values.
+    """
+
     # From the bounds_array and prediction_array we find Xdelta_list, Xabove_lowbounds
     # that is the difference in lower and upper point, and how much the prediction value
     # is above the lower point.
@@ -452,9 +483,16 @@ def makeInterpolation(bounds_array=None, prediction_array=None, predictor=None):
     print()
 
     Y = f(x=Xarray_for_interpolation, predictor=predictor)
+    print("Y:", Y)
+    print()
     # Number of columns are equal to num_predictions
     Y = Y.reshape(num_predictions, 2 ** num_features)
+    print("Y:", Y)
+    print()
     Y = np.transpose(Y)
+    print("shape(Y):", np.shape(Y))
+    print("Y:", Y)
+    print()
 
     for rowXdelta, rowXabove in zip(Xdelta_list, Xabove_lowbounds):
         Y_1st_half, Y_2nd_half = Y[0 : int(len(Y) / 2)], Y[int(len(Y) / 2) : len(Y)]
@@ -462,38 +500,6 @@ def makeInterpolation(bounds_array=None, prediction_array=None, predictor=None):
         Ynext = Y_1st_half + (Ydelta / rowXdelta) * rowXabove
         Y = Ynext
     return Y
-
-
-# # Input
-# ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
-# xdata_names = ML_dictEN2["xdata_names"]
-# xdata = ML_dictEN2["df_data"][xdata_names]
-
-# names_bounds = ML_dictEN2["X_bounds"]
-# rf_predictor = ML_dictEN2["Y"]["heat_load"]["pred"]["forest"]["predictor"]
-
-# # # print(ML_dictEN2.keys())
-# # print(xdata.head(40))
-
-# values = [[411.5, 143.0, 4.0, 0.2, 0.2], [410.5, 117.0, 4.0, 0.0, 0.0]]
-
-
-# lower_upper_points = collectInterpolationPoints(
-#     prediction_array=values,
-#     xdata_names=xdata_names,
-#     xdata=xdata,
-#     names_bounds=names_bounds,
-#     criteria_method="default",
-#     area_frac_to_search_points=1,
-# )
-# print("lower_upper_points", lower_upper_points)
-# print()
-
-# Y = makeInterpolation(
-#     bounds_array=lower_upper_points, prediction_array=values, predictor=rf_predictor
-# )
-
-# print("Y", Y)
 
 
 def randomForestInterpolation(
@@ -508,20 +514,61 @@ def randomForestInterpolation(
     area_frac_to_search_points=None,
 ):
     """
-    Function that takes an array of bounds and returns a long array with number of rows: num_prediction*2**num_feat,
-    and each row has a length of num_feat. So the returned array has the shape(num_prediction*2**num_feat, num_feat). 
-    For a 2 predictions task like this:
-    predictions_values = [[411.5, 143.0, 4.0, 0.2, 0.2], [410.5, 117.0, 4.0, 0.0, 0.0]]
-    the upper_lower_points or bounds_array could look like this:
-    bounds_array = [[[367.5, 416.5], [122.5, 147.0], [4, 4], [0.1, 0.25], [0, 1]], [[367.5, 416.5], [110.25, 122.5], [4, 4], [0.0, 0.0], [0, 0]]]
-    Now this function converts the bounds_array to one long array of rows, where each row is ready for a RF prediction. Note all rows for prediction
-    are one after another in the returned array. In the above example we have to 5 feature predictions which gives: 2*2**5 = 64 rows. Now these rows
-    are reshaped later on. The reshaping is done so each prediction gets its own columns. 
-    Input: 
-    bounds_array (upper_lower_points): list
-    Output: 
-    """
+    In the function makeBooleanMappingOfPredictionArray we find out if our prediction point contains only 
+    representative points, and if not we use randomForestInterpolation to make a good prediction as an alternative.
+    
+    Example:
+    Let's see how randomForestInterpolation works by showing an example: say we pass this input (which is a single array) 
+    to our prediction_array: [[3.5, 14, 51]] since it has some unrepresentative points. Let's say all points are unrepresentative 
+    points. Now to make a prediction we need some representative points to interpolate between. For that we use the 
+    collectInterpolationPoints which, let's say give us these values: [[3, 10, 50], [4, 20, 60]] (from the training data). 
+    So now we have lower and upper points for all the 3 features in the we want to make prediction for. The next step is to make 
+    the interpolation, where we use the makeInterpolation function. makeInterpolation first finds Xdelta_list, Xabove_lowbounds 
+    by using makeXdeltaListAndXAboveLowbounds. For this ex Xdelta_list=[[1, 10, 10]] since this is the difference between the 
+    lower and upper values shown above, the Xabove_lowbounds = [[.5, 4, 1]] since this is the difference between the lower 
+    and the prediction values shown above. 
+    Now the next part is where the key manipulation of data takes place. By using makeXarrayForInterpolationPredictions we now
+    take the lower/upper values and finds all posible combinations of these. For this ex the result is:
+    combinations = [[3, 10, 50], [3, 10, 60], [3, 20, 50], [3, 20, 60], [4, 10, 50], [4, 10, 60], [4, 20, 50], [4, 20, 60]]
+    Notice that the result is a list with length of 2**num_features (actually it is 2**num_features * num_predictions). 
+    And notice how we for the first four list items keep the first feature at 3 and for the next four keep it at 4, and
+    for the second feature the pattern is shifting for eac two values and so on. Now after this we have to make a some
+    transposing and reshaping in order to be able to pass it to the random forest predictor. 
+    When passed to the random forest predictor we get prediction values for all combinations of the 8 items list above. 
+    Say we get these 8 values: prediction_result = [29,31,30,29,37,32,30,30], where 29 is from [3, 10, 50], 31 from [3, 10, 60]
+    and so on. 
+    Now the final step is to make the interpolation between these 8 prediction values. We do that by first looking at the 
+    first feature value in our input which is 3.5. Now we do not have any prediction result when the first feature has the value 
+    of 3.5. But we have prediction results when the first feature is 3 and 4. The 1st and 5th item in 'combinations' above is 
+    [3, 10, 50] and [4, 10, 50] and the corresponding prediction results are 29 and 37. Note the two other features are the 
+    same in 1st and 5th item (i.e. 10 and 50, respectively). So the difference in prediction results (the difference between 
+    29 and 37) is then only due to the difference in the first feature (i.e. between 3 and 4, respectively). 
+    So now we can shrink the combinations list above by saying we now go from 3 to 3.5 for the first feature. By doing this 
+    we have increase the prediction result from 29 to half way up to 37 (which is 33), since 37 is when the first feature is 4. 
+    So we can replace the 1st and 5th item in 'combinations' above with [3.5, 10, 50] and replace 29 and 37 with 33. Doing this 
+    for all 8 items in 'combinations' gives this:
 
+    combinations = [[3.5, 10, 50], [3.5, 10, 60], [3.5, 20, 50], [3.5, 20, 60]] 
+    and the corresponding prediction results: prediction_result = [37, 31.5, 30, 29.5]
+    
+    Next we do the same for 2nd feature where we have prediction results for 10 and 20 and want to find for 14. 
+    combinations = [[3.5, 14, 50], [3.5, 14, 60]];  prediction_result = [31.8, 30.7]
+    And finally for the last feature:
+    combinations = [[3.5, 14, 51];  prediction_result = [31.7]
+
+    End example.
+
+    Input: 
+    prediction_array: type: list or numpy array. Array to make prediction on. 
+    xdata_names: type: pandas.core.indexes.base.Index
+    names_bounds: type: dict
+    xdata: type: pandas dataframe
+    RF_predictor: type: sklearn.ensemble.forest.RandomForestRegressor
+    criteria_method, min_points, min_percentage, area_frac_to_search_points: see randomForestPredictorWithInterpolation
+
+    Output: type: numpy array. Array with interpolated prediction values.
+    """
+    print("type(xdata_names", type(RF_predictor))
     if len(prediction_array) == 0:
         return np.array([])
     # Collect array of bounds for interpolation
@@ -531,6 +578,7 @@ def randomForestInterpolation(
         names_bounds=names_bounds,
         xdata=xdata,
         criteria_method=criteria_method,
+        area_frac_to_search_points=area_frac_to_search_points,
     )
     # Now interpolation calc
     Y = makeInterpolation(
@@ -556,13 +604,13 @@ def randomForestPredictorWithInterpolation(
 ):
     """
     Function that besides making normal random forest predictions also makes interpolations between random forest predictions. 
-    This option is valuable if you want to predict values in areas where the numbers of training points are small or missing.
+    This option is valuable if you want to predict values in areas where the numbers of training points are lean or missing.
 
     Input: 
-    prediction_array: type: list or numpy array. array to make prediction on. 
-    ML_dict: type: dict. name of ML_dict, e.g.: ML_dictEN2. 
-    yvar: type: str. name of dependent variable to predict. 
-    criteria_method: type: str. method to use in randomForestInterpolation, when choosing points for interpolation. Options are: 'default', 'num_points' or 
+    prediction_array: type: list or numpy array. Array to make prediction on. 
+    ML_dict: type: dict. Name of ML_dict, e.g.: ML_dictEN2. 
+    yvar: type: str. Name of dependent variable to predict. 
+    criteria_method: type: str. Method to use in randomForestInterpolation, when choosing points for interpolation. Options are: 'default', 'num_points' or 
     'points_percentage'. 'default' is 'num_points' with min_points set to 2. If choosing 'num_points' or 'points_percentage' also choose value for
     'min_points' or 'min_percentage', respectively. 
     criteria_method_boolean_map: type: str. method to use in makeBooleanMappingOfPredictionArray, to check each prediction in prediction_array to see if 
@@ -624,7 +672,7 @@ def randomForestPredictorWithInterpolation(
 
 # Input
 ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
-values = [[416.5, 122.5, 4.0, 0.0, 0.0], [416.5, 134.75, 4.0, 0.0, 0.0]]
+values = [[416.5, 125.5, 4.0, 0.0, 0.0], [316.5, 134.75, 4.0, 0.0, 0.0]]
 predict_y = randomForestPredictorWithInterpolation(
     prediction_array=values, ML_dict=ML_dictEN2, yvar="heat_load"
 )
