@@ -1,3 +1,5 @@
+"""For explanation of interpolation method and application examples see end of file."""
+
 import pandas as pd
 import numpy as np
 from itertools import product
@@ -17,10 +19,8 @@ def makeBooleanMappingOfPredictionArray(
     xdata=None,
     xdata_names=None,
 ):
-    """This function is used to decide whether prediction values should be
-    sent to simple prediction or interpolation prediction is needed. If 'value'
-    is False the variable 'representative' becomes also False, which means that 
-    interpolation is needed."""
+    """This function is used to decide whether prediction values should be sent to simple prediction or interpolation prediction 
+    is needed. If 'value' is False the variable 'representative' becomes also False, which means that interpolation is needed."""
     pred_array_boolean_map = []
     for prediction in prediction_array:
         representative = True
@@ -190,7 +190,8 @@ def collectInterpolationPoints(
     min_percentage=None,
     area_frac_to_search_points=None,
 ):
-    """Function that collects array with points to be used for interpolatiæon calc.
+    """
+    Function that collects array with points to be used for interpolatiæon calc.
     Approach: for each prediction (i.e. for each array of values in prediction_array) we go through each value and finds
     the closest lower and closest higher point for this value. These points should then be used for calculation of the
     interpolated prediction value. If both the closest lower and closest higher point is equal to the value - which is 
@@ -427,36 +428,63 @@ def makeXdeltaListAndXAboveLowbounds(bounds_array=None, prediction_array=None):
 # print(Xabove_lowbounds)
 
 
-def makeInterpolation(bounds_array=None, prediction_array=None, predictor=None):
+def makeInterpolation(Xdelta_list=None, Xabove_lowbounds=None, Yall_lower_upper=None):
     """
-    In this function we make the interpolation calculations. First we retrieve the relevant data for the calculations.
-    
-    Retrieve the relevant data:
-    Xdelta_list and Xabove_lowbounds which is found by makeXdeltaListAndXAboveLowbounds. And Xarray_for_interpolation by makeXarrayForInterpolationPredictions.
-
-    Preparing data for interpolation calculations:
-    Xarray_for_interpolation contains an array with the shape: (num_predictions * 2**num_feat, num_feat). For each individual prediction in prediction_array 
-    (e.g. a individual prediction could be: [3.5, 14, 51]) the Xarray_for_interpolation contains 2**num_feat single row arrays with all combinations of the
-    lower/higher points. The 2**num_feat single row arrays for each individual prediction lay on top of each other, the first prediction at the top followed
-    by the second and so forth. So if we pass these values: [[3.5, 14, 51], [3.1, 12, 51], [3., 10, 56]] to the prediction_array we would have a 
-    Xarray_for_interpolation with 24 rows (num_predictions * 2**num_feat) each row having 3 values. 
-    Now passing the values in Xarray_for_interpolation to the predictor then gives num_predictions * 2**num_feat prediction values (Y). 
-    Next we reshape and transpose Y so Y now have this shape: (2**num_feat, num_predictions). Which given the ex. above would give a 8 rows and 3 columns shape.
-
-    Interpolation calculations:
-    For each feature we now cut the length of Y by a factor of 2 by interpolate the first half of Y with the second half. Y contains values in it's 
-    first half that differs from the second half due to the difference in the first feature. So if a the first value in row one in Y's first half is 20 
-    (where we have feature one equal to 3) and the corresponding first value in row one in Y's second half is 30 (where we have feature one equal to 4) 
-    and we have the feature value being 3.5 we can now make the first feature interpolation by: Ynext = Y_1st_half + (Ydelta / rowXdelta) * rowXabove. 
-    And the same for the next feature by cut the length of Y by a factor of 2 again. When no more features we end up with a single interpolation value
-    for each individual prediction in prediction_array. E.g [29,31,30]. The values having been interpolated for all features.
+    In this function we make the interpolation calculations.
 
     Input: 
     bounds_array: type: list
     prediction_array: type: list or numpy array. Array to make prediction on. 
     predictor: type: see randomForestInterpolation
 
-    Output: type: numpy array. Array with interpolated prediction values.
+    Output:
+    Array with interpolated prediction values.
+    """
+    for rowXdelta, rowXabove in zip(Xdelta_list, Xabove_lowbounds):
+        Y_1st_half, Y_2nd_half = (
+            Yall_lower_upper[0 : int(len(Yall_lower_upper) / 2)],
+            Yall_lower_upper[int(len(Yall_lower_upper) / 2) : len(Yall_lower_upper)],
+        )
+        Ydelta = np.array(Y_2nd_half) - np.array(Y_1st_half)
+        # print("Ydelta:", Ydelta)
+        # print()
+        # print("rowXdelta", rowXdelta)
+        # print()
+        # print("Ydelta/rowXdelta:", Ydelta / rowXdelta)
+
+        Ynext = Y_1st_half + (Ydelta / rowXdelta) * rowXabove
+        # print("Ynext:", Ynext)
+        Yall_lower_upper = Ynext
+    return Yall_lower_upper
+
+
+# tist = makeInterpolation(
+#     Xdelta_list=[[1, 1], [10, 10], [10, 10]],
+#     Xabove_lowbounds=[[0.5, 0.1], [4, 7], [1, 6]],
+#     Yall_lower_upper=[
+#         [29, 23],
+#         [31, 21],
+#         [30, 20],
+#         [29, 23],
+#         [37, 26],
+#         [32, 25],
+#         [30, 23],
+#         [30, 27],
+#     ],
+# )
+
+
+def prepareForInterpolation(bounds_array=None, prediction_array=None, predictor=None):
+    """
+    In this function we retrieve the relevant data for the interpolation calculations.
+    
+    Input: 
+    bounds_array: type: list
+    prediction_array: type: list or numpy array. Array to make prediction on. 
+    predictor: type: see randomForestInterpolation
+
+    Output: 
+    Xdelta_list, Xabove_lowbounds, Yall_lower_upper: type: all are numpy array. 
     """
 
     # From the bounds_array and prediction_array we find Xdelta_list, Xabove_lowbounds
@@ -465,9 +493,9 @@ def makeInterpolation(bounds_array=None, prediction_array=None, predictor=None):
     Xdelta_list, Xabove_lowbounds = makeXdeltaListAndXAboveLowbounds(
         bounds_array=bounds_array, prediction_array=prediction_array
     )
-    print("Xdelta_list:", Xdelta_list)
-    print()
-    print("Xabove_lowbounds", Xabove_lowbounds)
+    # print("Xdelta_list:", Xdelta_list)
+    # print()
+    # print("Xabove_lowbounds", Xabove_lowbounds)
     num_predictions, num_features = len(prediction_array), len(prediction_array[0])
 
     # So far we have the all the closest lower and closest higher points for all
@@ -477,29 +505,23 @@ def makeInterpolation(bounds_array=None, prediction_array=None, predictor=None):
     Xarray_for_interpolation = makeXarrayForInterpolationPredictions(
         bounds_array=bounds_array
     )
-    print()
-    print("Xarray_for_interpolation_shape", np.shape(Xarray_for_interpolation))
-    print("Xarray_for_interpolation", Xarray_for_interpolation)
-    print()
+    # print()
+    # print("Xarray_for_interpolation_shape", np.shape(Xarray_for_interpolation))
+    # print("Xarray_for_interpolation", Xarray_for_interpolation)
+    # print()
 
-    Y = f(x=Xarray_for_interpolation, predictor=predictor)
-    print("Y:", Y)
-    print()
+    Yall_lower_upper = f(x=Xarray_for_interpolation, predictor=predictor)
+    # print("Yall_lower_upper:", Yall_lower_upper)
+    # print()
     # Number of columns are equal to num_predictions
-    Y = Y.reshape(num_predictions, 2 ** num_features)
-    print("Y:", Y)
-    print()
-    Y = np.transpose(Y)
-    print("shape(Y):", np.shape(Y))
-    print("Y:", Y)
-    print()
-
-    for rowXdelta, rowXabove in zip(Xdelta_list, Xabove_lowbounds):
-        Y_1st_half, Y_2nd_half = Y[0 : int(len(Y) / 2)], Y[int(len(Y) / 2) : len(Y)]
-        Ydelta = np.array(Y_2nd_half) - np.array(Y_1st_half)
-        Ynext = Y_1st_half + (Ydelta / rowXdelta) * rowXabove
-        Y = Ynext
-    return Y
+    Yall_lower_upper = Yall_lower_upper.reshape(num_predictions, 2 ** num_features)
+    # print("Yall_lower_upper:", Yall_lower_upper)
+    # print()
+    Yall_lower_upper = np.transpose(Yall_lower_upper)
+    # print("shape(Y):", np.shape(Yall_lower_upper))
+    # print("Yall_lower_upper:", Yall_lower_upper)
+    # print()
+    return Xdelta_list, Xabove_lowbounds, Yall_lower_upper
 
 
 def randomForestInterpolation(
@@ -517,47 +539,6 @@ def randomForestInterpolation(
     In the function makeBooleanMappingOfPredictionArray we find out if our prediction point contains only 
     representative points, and if not we use randomForestInterpolation to make a good prediction as an alternative.
     
-    Example:
-    Let's see how randomForestInterpolation works by showing an example: say we pass this input (which is a single array) 
-    to our prediction_array: [[3.5, 14, 51]] since it has some unrepresentative points. Let's say all points are unrepresentative 
-    points. Now to make a prediction we need some representative points to interpolate between. For that we use the 
-    collectInterpolationPoints which, let's say give us these values: [[3, 10, 50], [4, 20, 60]] (from the training data). 
-    So now we have lower and upper points for all the 3 features in the we want to make prediction for. The next step is to make 
-    the interpolation, where we use the makeInterpolation function. makeInterpolation first finds Xdelta_list, Xabove_lowbounds 
-    by using makeXdeltaListAndXAboveLowbounds. For this ex Xdelta_list=[[1, 10, 10]] since this is the difference between the 
-    lower and upper values shown above, the Xabove_lowbounds = [[.5, 4, 1]] since this is the difference between the lower 
-    and the prediction values shown above. 
-    Now the next part is where the key manipulation of data takes place. By using makeXarrayForInterpolationPredictions we now
-    take the lower/upper values and finds all posible combinations of these. For this ex the result is:
-    combinations = [[3, 10, 50], [3, 10, 60], [3, 20, 50], [3, 20, 60], [4, 10, 50], [4, 10, 60], [4, 20, 50], [4, 20, 60]]
-    Notice that the result is a list with length of 2**num_features (actually it is 2**num_features * num_predictions). 
-    And notice how we for the first four list items keep the first feature at 3 and for the next four keep it at 4, and
-    for the second feature the pattern is shifting for eac two values and so on. Now after this we have to make a some
-    transposing and reshaping in order to be able to pass it to the random forest predictor. 
-    When passed to the random forest predictor we get prediction values for all combinations of the 8 items list above. 
-    Say we get these 8 values: prediction_result = [29,31,30,29,37,32,30,30], where 29 is from [3, 10, 50], 31 from [3, 10, 60]
-    and so on. 
-    Now the final step is to make the interpolation between these 8 prediction values. We do that by first looking at the 
-    first feature value in our input which is 3.5. Now we do not have any prediction result when the first feature has the value 
-    of 3.5. But we have prediction results when the first feature is 3 and 4. The 1st and 5th item in 'combinations' above is 
-    [3, 10, 50] and [4, 10, 50] and the corresponding prediction results are 29 and 37. Note the two other features are the 
-    same in 1st and 5th item (i.e. 10 and 50, respectively). So the difference in prediction results (the difference between 
-    29 and 37) is then only due to the difference in the first feature (i.e. between 3 and 4, respectively). 
-    So now we can shrink the combinations list above by saying we now go from 3 to 3.5 for the first feature. By doing this 
-    we have increase the prediction result from 29 to half way up to 37 (which is 33), since 37 is when the first feature is 4. 
-    So we can replace the 1st and 5th item in 'combinations' above with [3.5, 10, 50] and replace 29 and 37 with 33. Doing this 
-    for all 8 items in 'combinations' gives this:
-
-    combinations = [[3.5, 10, 50], [3.5, 10, 60], [3.5, 20, 50], [3.5, 20, 60]] 
-    and the corresponding prediction results: prediction_result = [37, 31.5, 30, 29.5]
-    
-    Next we do the same for 2nd feature where we have prediction results for 10 and 20 and want to find for 14. 
-    combinations = [[3.5, 14, 50], [3.5, 14, 60]];  prediction_result = [31.8, 30.7]
-    And finally for the last feature:
-    combinations = [[3.5, 14, 51];  prediction_result = [31.7]
-
-    End example.
-
     Input: 
     prediction_array: type: list or numpy array. Array to make prediction on. 
     xdata_names: type: pandas.core.indexes.base.Index
@@ -568,7 +549,7 @@ def randomForestInterpolation(
 
     Output: type: numpy array. Array with interpolated prediction values.
     """
-    print("type(xdata_names", type(RF_predictor))
+    # print("type(xdata_names", type(RF_predictor))
     if len(prediction_array) == 0:
         return np.array([])
     # Collect array of bounds for interpolation
@@ -580,16 +561,76 @@ def randomForestInterpolation(
         criteria_method=criteria_method,
         area_frac_to_search_points=area_frac_to_search_points,
     )
-    # Now interpolation calc
-    Y = makeInterpolation(
+    # Prepare for interpolation calc
+    Xdelta_list, Xabove_lowbounds, Yall_lower_upper = prepareForInterpolation(
         bounds_array=bounds_array,
         prediction_array=prediction_array,
         predictor=RF_predictor,
     )
+    # Now interpolation calc
+    Y = makeInterpolation(
+        Xdelta_list=Xdelta_list,
+        Xabove_lowbounds=Xabove_lowbounds,
+        Yall_lower_upper=Yall_lower_upper,
+    )
     return Y[0]
 
 
+def mappingSplittingAndMergingWhenInterpolationTrue(
+    prediction_array=None,
+    criteria_method="default",
+    criteria_method_boolean_map="num_points",
+    min_points=None,
+    min_points_boolean_map=2,
+    min_percentage=None,
+    min_percentage_boolean_map=None,
+    area_frac_to_search_points=0.05,
+    area_frac_to_search_points_boolean_map=0.02,
+    names_bounds=None,
+    xdata=None,
+    xdata_names=None,
+    RF_predictor=None,
+):
+    # Make mapping of required interpolation and not required interpolation
+    pred_array_boolean_map = makeBooleanMappingOfPredictionArray(
+        prediction_array=prediction_array,
+        min_points=min_points_boolean_map,
+        min_percentage=min_percentage_boolean_map,
+        criteria_method=criteria_method_boolean_map,
+        area_frac_to_search_points=area_frac_to_search_points_boolean_map,
+        names_bounds=names_bounds,
+        xdata=xdata,
+        xdata_names=xdata_names,
+    )
+    # Make arrays to RF_prediction and to RF_interpolation
+    to_RF_prediction, to_RF_interpolation = basedOnBooleanMappingMakePredArrayForBothSimplePredictionAndInterpolation(
+        pred_array_boolean_map=pred_array_boolean_map, prediction_array=prediction_array
+    )
+
+    # Sent to RF_prediction and to RF_interpolation
+    Y_RF_prediction = f(x=to_RF_prediction, predictor=RF_predictor)
+    Y_RF_interpolation = randomForestInterpolation(
+        prediction_array=to_RF_interpolation,
+        xdata_names=xdata_names,
+        names_bounds=names_bounds,
+        xdata=xdata,
+        RF_predictor=RF_predictor,
+        criteria_method=criteria_method,
+        min_points=min_points,
+        min_percentage=min_percentage,
+        area_frac_to_search_points=area_frac_to_search_points,
+    )
+    # Merge RF_prediction and RF_interpolation in accordance with to pred_array_boolean_map
+    Y = mergeY_fromSimplePredictionAndFromInterpolation(
+        Y_simple_prediction=Y_RF_prediction,
+        Y_interpolation=Y_RF_interpolation,
+        pred_array_boolean_map=pred_array_boolean_map,
+    )
+    return np.array(Y)
+
+
 def randomForestPredictorWithInterpolation(
+    interpolation=True,
     prediction_array=None,
     ML_dict=None,
     yvar=None,
@@ -632,51 +673,37 @@ def randomForestPredictorWithInterpolation(
     xdata_names, df_data = ML_dict["xdata_names"], ML_dict["df_data"]
     xdata, names_bounds = df_data[xdata_names], ML_dict["X_bounds"]
     RF_predictor = ML_dict["Y"][yvar]["pred"]["forest"]["predictor"]
-    # Make mapping of required interpolation and not required interpolation
-    pred_array_boolean_map = makeBooleanMappingOfPredictionArray(
-        prediction_array=prediction_array,
-        min_points=min_points_boolean_map,
-        min_percentage=min_percentage_boolean_map,
-        criteria_method=criteria_method_boolean_map,
-        area_frac_to_search_points=area_frac_to_search_points_boolean_map,
-        names_bounds=names_bounds,
-        xdata=xdata,
-        xdata_names=xdata_names,
-    )
-    # Make arrays to RF_prediction and to RF_interpolation
-    to_RF_prediction, to_RF_interpolation = basedOnBooleanMappingMakePredArrayForBothSimplePredictionAndInterpolation(
-        pred_array_boolean_map=pred_array_boolean_map, prediction_array=prediction_array
-    )
 
-    # Sent to RF_prediction and to RF_interpolation
-    Y_RF_prediction = f(x=to_RF_prediction, predictor=RF_predictor)
-    Y_RF_interpolation = randomForestInterpolation(
-        prediction_array=to_RF_interpolation,
-        xdata_names=xdata_names,
-        names_bounds=names_bounds,
-        xdata=xdata,
-        RF_predictor=RF_predictor,
-        criteria_method=criteria_method,
-        min_points=min_points,
-        min_percentage=min_percentage,
-        area_frac_to_search_points=area_frac_to_search_points,
-    )
-    # Merge RF_prediction and RF_interpolation in accordance with to pred_array_boolean_map
-    Y = mergeY_fromSimplePredictionAndFromInterpolation(
-        Y_simple_prediction=Y_RF_prediction,
-        Y_interpolation=Y_RF_interpolation,
-        pred_array_boolean_map=pred_array_boolean_map,
-    )
-    return np.array(Y)
+    if interpolation == True:
+        Y = mappingSplittingAndMergingWhenInterpolationTrue(
+            prediction_array=prediction_array,
+            criteria_method=criteria_method,
+            criteria_method_boolean_map=criteria_method_boolean_map,
+            min_points=min_points,
+            min_points_boolean_map=min_points_boolean_map,
+            min_percentage=min_percentage,
+            min_percentage_boolean_map=min_percentage_boolean_map,
+            area_frac_to_search_points=area_frac_to_search_points,
+            area_frac_to_search_points_boolean_map=area_frac_to_search_points_boolean_map,
+            names_bounds=names_bounds,
+            xdata=xdata,
+            xdata_names=xdata_names,
+            RF_predictor=RF_predictor,
+        )
+    elif interpolation == False:
+        Y = f(x=prediction_array, predictor=RF_predictor)
+    return Y
 
 
-# Input
-ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
-values = [[416.5, 125.5, 4.0, 0.0, 0.0], [316.5, 134.75, 4.0, 0.0, 0.0]]
-predict_y = randomForestPredictorWithInterpolation(
-    prediction_array=values, ML_dict=ML_dictEN2, yvar="heat_load"
-)
-print(predict_y)
+# Input Constructed data - ML_dictCON1
+# ML_dictCON1 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictCON1.sav")
+# values = [[3.0, 20.0, 70], [3.8, 23.5, 65]]
+# predict_y = randomForestPredictorWithInterpolation(
+#     interpolation=True, prediction_array=values, ML_dict=ML_dictCON1, yvar="Y"
+# )
+# print(predict_y)  # False : [30.89396667 31.4089    ]   True: [30.89396667 33.494675  ]
+
+
 # xdata_names = ML_dictEN2["xdata_names"]
 # xdata = ML_dictEN2["df_data"][xdata_names]
 # # names_bounds = ML_dictEN2["X_bounds"]
@@ -709,665 +736,174 @@ print(predict_y)
 # wall_area=[245.0, 269.5, 294.0, 318.5, 343.0, 367.5, 416.5]
 
 
-# prediction_values = [
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-#     [350, 161, 2.5, 0.25, 4.5],
-#     [250, 131, 3.5, 0.35, 0.5],
-#     [245.5, 210, 4.5, 0.15, 2.5],
-# ]
+"""
+Let's see how randomForestPredictorWithInterpolation works by going through an example:
+To make a prediction we have to pass in data for prediction_array, ML_dict and yvar. prediction_array contains feature values that
+we want to make prediction on (it may contain a single set or many sets of feature values). ML_dict is the dict with training data
+etc. yvar is the dependent var - the variable that we want to predict.
 
-# prediction_values2 = [
-#     [318.5, 110.25, 2.0, 0.234375, 2.8125],
-#     [318.5, 122.5, 2.0, 0.234375, 2.8125],
-#     [318.5, 134.75, 2.0, 0.234375, 2.8125],
-#     [318.5, 147.0, 2.0, 0.234375, 2.8125],
-#     [318.5, 159.25, 2.0, 0.234375, 2.8125],
-#     [318.5, 171.5, 2.0, 0.234375, 2.8125],
-#     [318.5, 183.75, 2.0, 0.234375, 2.8125],
-#     [318.5, 196.0, 2.0, 0.234375, 2.8125],
-#     [318.5, 208.25, 2.0, 0.234375, 2.8125],
-#     [318.5, 220.5, 2.0, 0.234375, 2.8125],
-#     [318.5, 110.25, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 122.5, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 134.75, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 147.0, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 159.25, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 171.5, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 183.75, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 196.0, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 208.25, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 220.5, 2.2142857142857144, 0.234375, 2.8125],
-#     [318.5, 110.25, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 122.5, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 134.75, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 147.0, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 159.25, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 171.5, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 183.75, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 196.0, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 208.25, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 220.5, 2.4285714285714284, 0.234375, 2.8125],
-#     [318.5, 110.25, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 122.5, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 134.75, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 147.0, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 159.25, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 171.5, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 183.75, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 196.0, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 208.25, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 220.5, 2.642857142857143, 0.234375, 2.8125],
-#     [318.5, 110.25, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 122.5, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 134.75, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 147.0, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 159.25, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 171.5, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 183.75, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 196.0, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 208.25, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 220.5, 2.857142857142857, 0.234375, 2.8125],
-#     [318.5, 110.25, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 122.5, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 134.75, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 147.0, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 159.25, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 171.5, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 183.75, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 196.0, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 208.25, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 220.5, 3.071428571428571, 0.234375, 2.8125],
-#     [318.5, 110.25, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 122.5, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 134.75, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 147.0, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 159.25, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 171.5, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 183.75, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 196.0, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 208.25, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 220.5, 3.2857142857142856, 0.234375, 2.8125],
-#     [318.5, 110.25, 3.5, 0.234375, 2.8125],
-#     [318.5, 122.5, 3.5, 0.234375, 2.8125],
-#     [318.5, 134.75, 3.5, 0.234375, 2.8125],
-#     [318.5, 147.0, 3.5, 0.234375, 2.8125],
-#     [318.5, 159.25, 3.5, 0.234375, 2.8125],
-#     [318.5, 171.5, 3.5, 0.234375, 2.8125],
-#     [318.5, 183.75, 3.5, 0.234375, 2.8125],
-#     [318.5, 196.0, 3.5, 0.234375, 2.8125],
-#     [318.5, 208.25, 3.5, 0.234375, 2.8125],
-#     [318.5, 220.5, 3.5, 0.234375, 2.8125],
-#     [318.5, 110.25, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 122.5, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 134.75, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 147.0, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 159.25, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 171.5, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 183.75, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 196.0, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 208.25, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 220.5, 3.7142857142857144, 0.234375, 2.8125],
-#     [318.5, 110.25, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 122.5, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 134.75, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 147.0, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 159.25, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 171.5, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 183.75, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 196.0, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 208.25, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 220.5, 3.9285714285714284, 0.234375, 2.8125],
-#     [318.5, 110.25, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 122.5, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 134.75, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 147.0, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 159.25, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 171.5, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 183.75, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 196.0, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 208.25, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 220.5, 4.142857142857142, 0.234375, 2.8125],
-#     [318.5, 110.25, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 122.5, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 134.75, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 147.0, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 159.25, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 171.5, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 183.75, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 196.0, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 208.25, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 220.5, 4.357142857142858, 0.234375, 2.8125],
-#     [318.5, 110.25, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 122.5, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 134.75, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 147.0, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 159.25, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 171.5, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 183.75, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 196.0, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 208.25, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 220.5, 4.571428571428571, 0.234375, 2.8125],
-#     [318.5, 110.25, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 122.5, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 134.75, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 147.0, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 159.25, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 171.5, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 183.75, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 196.0, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 208.25, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 220.5, 4.785714285714286, 0.234375, 2.8125],
-#     [318.5, 110.25, 5.0, 0.234375, 2.8125],
-#     [318.5, 122.5, 5.0, 0.234375, 2.8125],
-#     [318.5, 134.75, 5.0, 0.234375, 2.8125],
-#     [318.5, 147.0, 5.0, 0.234375, 2.8125],
-#     [318.5, 159.25, 5.0, 0.234375, 2.8125],
-#     [318.5, 171.5, 5.0, 0.234375, 2.8125],
-#     [318.5, 183.75, 5.0, 0.234375, 2.8125],
-#     [318.5, 196.0, 5.0, 0.234375, 2.8125],
-#     [318.5, 208.25, 5.0, 0.234375, 2.8125],
-#     [318.5, 220.5, 5.0, 0.234375, 2.8125],
-# ]
+The overall structure of randomForestPredictorWithInterpolation is this:
+
+1) make a mapping of the items in prediction_array, that needs interpolation and not (mapping is stores in pred_array_boolean_map)
+2) based on pred_array_boolean_map make a list that should be send directly to prediction (without interpolation) and a list that 
+should have interpolation (to_RF_prediction and to_RF_interpolation, respectively)
+3) Sent both RF_prediction and RF_interpolation to be processed and we get Y_RF_prediction and Y_RF_interpolation in return, 
+respectively  
+4) Merge Y_RF_prediction and Y_RF_interpolation in accordance with to pred_array_boolean_map
+
+The example is divided into these 4 points.
+
+1) 
+
+collectInterpolationPoints
+Function that collects array with points to be used for interpolatiæon calc.
+Approach: for each prediction (i.e. for each array of values in prediction_array) we go through each value and finds
+the closest lower and closest higher point for this value. These points should then be used for calculation of the
+interpolated prediction value. If both the closest lower and closest higher point is equal to the value - which is 
+the case when we have a value in our prediction that is a representative training data point, which is often the 
+case - we use this value for both the closest lower and the closest higher point.
 
 
-# Y = randomForestPredictorWithInterpolation(
-#     prediction_array=prediction_values, ML_dict=ML_dictEN2, yvar="heat_load"
-# )
-# print(Y)
+Example:
+Let's see how randomForestInterpolation works by showing an example: say we pass this input (which is a single array) 
+to our prediction_array: [[3.5, 14, 51]] since it has some unrepresentative points. Let's say all points are unrepresentative 
+points. Now to make a prediction we need some representative points to interpolate between. For that we use the 
+collectInterpolationPoints which, let's say give us these values: [[3, 10, 50], [4, 20, 60]] (from the training data). 
+So now we have lower and upper points for all the 3 features for in [3.5, 14, 51]. The next step is to prepare for 
+interpolation, where we use the prepareForInterpolation function. prepareForInterpolation first finds Xdelta_list, 
+Xabove_lowbounds by using makeXdeltaListAndXAboveLowbounds. For this ex Xdelta_list=[[1], [10], [10]] since this is the difference
+between the lower and upper values shown above, the Xabove_lowbounds = [[.5], [4], [1]] since this is the difference between the 
+lower and the prediction values shown above. 
+Now the next part is where the key manipulation of data takes place. By using makeXarrayForInterpolationPredictions we now
+take the lower/upper values and finds all posible combinations of these. For this ex the result is:
+combinations = [[3, 10, 50], [3, 10, 60], [3, 20, 50], [3, 20, 60], [4, 10, 50], [4, 10, 60], [4, 20, 50], [4, 20, 60]]
+Notice that the result is a list with length of 2**num_features (actually it is 2**num_features * num_predictions). 
+And notice how we for the first four list items keep the first feature at 3 and for the next four keep it at 4, and
+for the second feature the pattern is shifting for eac two values and so on. Now after this we have to make a some
+transposing and reshaping in order to be able to pass it to the random forest predictor. 
+When passed to the random forest predictor we get prediction values for all combinations of the 8 items list above. 
+Say we get these 8 values: prediction_result = [29,31,30,29,37,32,30,30], where 29 is from [3, 10, 50], 31 from [3, 10, 60]
+and so on. 
 
-# Y = randomForestPredictorWithInterpolation(
-#     prediction_array=prediction_values2, ML_dict=ML_dictEN2, yvar="heat_load"
-# )
-# print(Y)
+Now the final step is to make the interpolation between these 8 prediction values, where we use the makeInterpolation function. 
+We do that by first looking at the first feature value in our input which is 3.5. Now we do not have any prediction result 
+when the first feature has the value 3.5. But we have prediction results when the first feature is 3 and 4. The 1st and 5th 
+item in 'combinations' above is [3, 10, 50] and [4, 10, 50] and the corresponding prediction results are 29 and 37. Note the 
+two other features are the same in 1st and 5th item (i.e. 10 and 50, respectively). So the difference in prediction results 
+(the difference between 29 and 37) is then only due to the difference in the first feature (i.e. between 3 and 4, respectively). 
+So now we can shrink the combinations list above by saying we now go from 3 to 3.5 for the first feature. By doing this 
+we have increase the prediction result from 29 to half way up to 37 (which is 33), since 37 is when the first feature is 4. 
+So we can replace the 1st and 5th item in 'combinations' above with [3.5, 10, 50] and replace 29 and 37 with 33. Doing this 
+for all 8 items in 'combinations' gives this:
 
+combinations = [[3.5, 10, 50], [3.5, 10, 60], [3.5, 20, 50], [3.5, 20, 60]] 
+and the corresponding prediction results: prediction_result = [37, 31.5, 30, 29.5]
 
-# Y = f(x=prediction_values, predictor=rf_predictor)
-# print(Y)
+Next we do the same for 2nd feature where we have prediction results for 10 and 20 and want to find for 14. 
+combinations = [[3.5, 14, 50], [3.5, 14, 60]];  prediction_result = [31.8, 30.7]
+And finally for the last feature:
+combinations = [[3.5, 14, 51];  prediction_result = [31.7]
 
-
-# Y = makeInterpolation(bounds_array=bounds_array, prediction_array=prediction_values)
-# print(Y)
-
-# # Input
-# prediction_values = [[3.5, 59, 22, 34], [3.2, 55, 21, 38], [3.5, 59, 22, 34]]
-
-# bounds_array = [
-#     [[3, 4], [50, 60], [20, 30], [30, 40]],
-#     [[3, 4], [50, 60], [20, 30], [30, 40]],
-#     [[3, 4], [50, 60], [20, 30], [30, 40]],
-# ]
-
-# sum_sum_list = makeXarrayForInterpolationPredictions(bounds_array=bounds_array)
-# a = np.array(
-#     (
-#         [
-#             2,
-#             2.5,
-#             2.25,
-#             1.7,
-#             1.3,
-#             1,
-#             0.45,
-#             0.75,
-#             0.7,
-#             3.25,
-#             2.8,
-#             2.4,
-#             2.2,
-#             1.9,
-#             1.5,
-#             1.4,
-#         ],
-#         [
-#             21,
-#             2.9,
-#             2.25,
-#             2.7,
-#             1.3,
-#             1,
-#             0.45,
-#             0.75,
-#             1.7,
-#             3.25,
-#             2.9,
-#             2.4,
-#             2.2,
-#             1.9,
-#             2.5,
-#             2.4,
-#         ],
-#         [
-#             2,
-#             2.5,
-#             2.25,
-#             1.7,
-#             1.3,
-#             1,
-#             0.45,
-#             0.75,
-#             0.7,
-#             3.25,
-#             2.8,
-#             2.4,
-#             2.2,
-#             1.9,
-#             1.5,
-#             1.4,
-#         ],
-#     )
-# )
+End example.
+sum_list has all lower/upper points to make interpolation for a given prediction.
+The structure is the following: first prediction at first feature has its lower points
+repeated 2**num_feat/(2**index+1) times, followed by its upper points also repeated
+2**num_feat/(2**index+1) times, which make a total of 16+16 points for first index in ex above.
+Next is feature number 2 in first prediction: again its lower points repeated 2**num_feat/(2**index+1)
+times, followed by its upper points also repeated 2**num_feat/(2**index+1) times, which make a total
+of 8+8+8+8 points for second index in ex above. And so on.. This structure gives all combinations of
+lower/upper points making interpolation possible
 
 
-# print(len(sum_sum_list))
-# print(len(a[0]))
-
-# Y = makeInterpolation(
-#     Y=a, bounds_array=bounds_array, prediction_array=prediction_values
-# )
-# print(Y)
-
-
-# def keepIfDataPointsAreComprisingPercentageAboveLimit(
-#     data_fraction_limit=None,
-#     list_of_values=None,
-#     percentage_of_range=None,
-#     xdata=None,
-#     var=None,
-# ):
-#     """Function that takes list of values and returns another list of values which passed the conditions. The overall
-#     approach is to ensure that we base our interpolation on a representatative amount of data. In other words, if we
-#     want to make a prediction and one of our variables is not representet in our train dataset, i.e. not close to any
-#     of the train data that our model is based on, then we want to make a interpolation from data that our model is based on.
-#     And in order to say that these data are representatative is to say that they comprise a certain fraction of the total
-#     amount of data (data_fraction_limit), and that we collect the data for interpolation in a certain confined area (percentage_of_range).
-#     Approach: the conditions to pass is the data_fraction_limit and percentage_of_range. The data_fraction_limit is
-#     the minimum fraction of data (of the total dataset) we want to base the points of interpolation on. The percentage_of_range
-#     is the distance range for the given variable, i.e. how far to the left and right we can go, when we collect data to calc
-#     the data_fraction_limit. When data_fraction_limit is higher and the percentage_of_range is lower, the conditions are more difficult
-#     to fullfill, since then we both want our data to represent a higher fraction of the total amount of data, while we also want to find these data on
-#     a small area (not far to the left and right).
-#     Input:
-#     data_fraction_limit:fraction we specify,
-#     list_of_values: values that are either rejected or returned by the function,
-#     percentage_of_range: fraction we specify,
-#     xdata: dataframe,
-#     var: variable
-#     Output:
-#     list_result: values that passed the conditions.
-#     """
-#     list_result = []
-#     for item in list_of_values:
-#         low, high = item - percentage_of_range, item + percentage_of_range
-#         if (
-#             xdata[var][(xdata[var] > low) & (xdata[var] < high)].count()
-#             / xdata[var].count()
-#             > data_fraction_limit
-#         ):
-#             list_result.append(item)
-#     return list_result
+Function that takes an array of bounds and returns a long array with number of rows: num_prediction*2**num_feat,
+and each row has a length of num_feat. So the returned array has the shape(num_prediction*2**num_feat, num_feat). 
+For a 2 predictions task like this:
+predictions_values = [[411.5, 143.0, 4.0, 0.2, 0.2], [410.5, 117.0, 4.0, 0.0, 0.0]]
+the upper_lower_points or bounds_array could look like this:
+bounds_array = [[[367.5, 416.5], [122.5, 147.0], [4, 4], [0.1, 0.25], [0, 1]], [[367.5, 416.5], [110.25, 122.5], [4, 4], [0.0, 0.0], [0, 0]]]
+Now this function converts the bounds_array to one long array of rows, where each row is ready for a RF prediction. Note all rows for prediction
+are one after another in the returned array. In the above example we have to 5 feature predictions which gives: 2*2**5 = 64 rows. Now these rows
+are reshaped later on. The reshaping is done so each prediction gets its own columns. 
 
 
-# def findBelowAndAboveValuesUsingRangeAndLimit(
-#     xdata=None,
-#     var=None,
-#     to_predict=None,
-#     percent_value_data_range=None,
-#     data_fraction_limit=None,
-# ):
-#     list_lower = xdata[var][xdata[var] <= to_predict[var]].drop_duplicates()
-#     list_higher = xdata[var][xdata[var] >= to_predict[var]].drop_duplicates()
-#     # find data range for var
-#     lowest, highest = xdata[var].min(), xdata[var].max()
-#     l_h_range = highest - lowest  # lowest, highest range
-#     percentage_of_range = l_h_range * percent_value_data_range
 
-#     # llksadfl: list_lower_keep_since_above_data_fraction_limit
-#     llksadfl = keepIfDataPointsAreComprisingPercentageAboveLimit(
-#         data_fraction_limit=data_fraction_limit,
-#         list_of_values=list_lower,
-#         percentage_of_range=percentage_of_range,
-#         xdata=xdata,
-#         var=var,
-#     )
-#     # lhksadfl: list_higher_keep_since_above_data_fraction_limit
-#     lhksadfl = keepIfDataPointsAreComprisingPercentageAboveLimit(
-#         data_fraction_limit=0.05,
-#         list_of_values=list_higher,
-#         percentage_of_range=percentage_of_range,
-#         xdata=xdata,
-#         var=var,
-#     )
-#     return llksadfl, lhksadfl
+Prepare for interpolation:
+Xdelta_list and Xabove_lowbounds is found by makeXdeltaListAndXAboveLowbounds. 
+And Xarray_for_interpolation by makeXarrayForInterpolationPredictions.
 
+Preparing data for interpolation calculations:
+As explained in the text for randomForestInterpolation the Xarray_for_interpolation contains sections of rows with the shape: 
+(num_predictions * 2**num_feat, num_feat). A section of rows for each prediction to make. And each row in these sections
+is a unique combination of lower and upper points for this particular prediction. And as also mentioned in the text the 
+sections lay on top of each other - first one first and so forth. As an example for a 2-value prediction array like this:
+prediction_array: [[3.5, 14, 51], [2.1, 27, 76]] the Xarray_for_interpolation may contain these values:
 
-# def collectValuesForLinRegr(
-#     df_xdata=None,
-#     to_predict=None,
-#     threshold=0.1,
-#     percent_value_data_range=0.05,
-#     data_fraction_limit=0.02,
-# ):
-#     """Approach: If prediction value (var) is not outside the threshold, keep the value (i.e. append it two times).
-#     When the prediction value (var) is not outside the threshold it means it is close to some of the models training data points.
-#     And this means again that no interpolation is needed. Else we will find interpolation points by finding points below and above
-#     the prediction value."""
-#     xdata = df_xdata
-#     to_predict_for_regr = {key: [] for key in xdata.columns}
-#     for var in to_predict:
-#         # First we find the closest lower/higher value to the prediction value (var),
-#         # NOTE: the closest value could be the prediction value.
-#         closest_lower = xdata[var][xdata[var] <= to_predict[var]].max()
-#         closest_higher = xdata[var][xdata[var] >= to_predict[var]].min()
-#         # Then we check if it inside the threshold - i.e. is either closest_lower or closest_higher sufficient close
-#         # to the prediction value. And keep the value if it is (i.e. append it two times).
-#         if closest_lower > to_predict[var] * (
-#             1 - threshold
-#         ) or closest_higher < to_predict[var] * (1 + threshold):
-#             for i in range(2):
-#                 to_predict_for_regr[var].append(to_predict[var])
-#         else:
-#             # Arriving here in the algoritme means that no training data are
-#             # close to the value for prediction for this var, and thus we will
-#             # find interpolation points by finding points below and above
-#             # the prediction value.
-#             # llksadfl: list_lower_keep_since_above_data_fraction_limit
-#             # lhksadfl: list_higher_keep_since_above_data_fraction_limit
-#             llksadfl, lhksadfl = findBelowAndAboveValuesUsingRangeAndLimit(
-#                 xdata=xdata,
-#                 var=var,
-#                 to_predict=to_predict,
-#                 percent_value_data_range=percent_value_data_range,
-#                 data_fraction_limit=data_fraction_limit,
-#             )
-#             if len(llksadfl) == 0 or len(lhksadfl) == 0:
-#                 return f"Unable to find interpolation data points given the input: percent_value_data_range={percent_value_data_range} and data_fraction_limit={data_fraction_limit}"
-#             else:
-#                 # Now finding the value closest to the prediction value
-#                 closest_lower = max(llksadfl)
-#                 closest_higher = min(lhksadfl)
-#             # Now appending the data points below and above the prediction value
-#             to_predict_for_regr[var].append(closest_lower)
-#             to_predict_for_regr[var].append(closest_higher)
-#     return to_predict_for_regr
+[[3, 10, 50], [3, 10, 60], [3, 20, 50], [3, 20, 60], [4, 10, 50], [4, 10, 60], [4, 20, 50], [4, 20, 60], 
+[2, 20, 70], [2, 20, 80], [2, 30, 70], [2, 30, 80], [3, 20, 70], [3, 20, 80], [3, 30, 70], [3, 30, 80]]
+
+first 8 items (first line) is first section of rows, i.e. the unique combination of lower and upper points for the prediction
+[3.5, 14, 51]. 
+
+Now passing the values in Xarray_for_interpolation to the predictor then gives num_predictions * 2**num_feat prediction values 
+(Yall_lower_upper). In our ex the predictor may return these values:
+Yall_lower_upper =  [[29], [31], [30], [29], [37], [32], [30], [30], [23], [21], [20], [23], [26], [25], [23], [27]]
+Again, note that the first 8 items are prediction values generated from unique combination of lower and upper points for the
+prediction of [3.5, 14, 51] that we have to make.  
+
+Now in order to make the next calculations more efficient we we reshape and transpose Yall_lower_upper so Yall_lower_upper 
+now have this shape: (2**num_feat, num_predictions). Which given the ex. above would give a 8 rows and 2 columns shape:
+Yall_lower_upper = [[29, 23], [31, 21], [30, 20], [29, 23], [37, 26], [32, 25], [30, 23], [30, 27]]
+
+For this ex the Xdelta_list and Xabove_lowbounds would be:
+
+Xdelta_list = [[1, 1], [10, 10], [10, 10]]; Xabove_lowbounds = [[.5, .1], [4, 7], [1, 6]]
 
 
-# def makeDFforMultipleRegr(to_predict=None, df_xdata=None, threshold=0.1):
-#     """Function that makes a dataframe for multiple interpolation of vars.
-#     Approach: The function creates data for multiple linear regression by making
-#     rows starting with 2 lower values for var. For the first low value of
-#     var we set all the other vars to their lower value in that row. For the
-#     next low value of var we set all the other vars to their higher value.
-#     And repeating that for but with the 2 high values for var. And then the
-#     same for the next var.
-#     Input:
-#     to_predict: dict with the values to predict Y,
-#     df_xdata: a dataframe with the train xdata
-#     threshold: threshold to pass to the function collectValuesForLinRegr
-#     """
-#     to_predict_for_regr = collectValuesForLinRegr(
-#         to_predict=to_predict, df_xdata=df_xdata, threshold=threshold
-#     )
-#     collect_to_df = {key: [] for key in to_predict_for_regr}
-#     count_vars_no_regr = 0
-#     for var in to_predict_for_regr:
-#         # If var in to_predict_for_regr have different values
-#         if to_predict_for_regr[var][0] != to_predict_for_regr[var][1]:
-#             # then we append these two values 2 times
-#             for i in range(2):
-#                 collect_to_df[var].append(to_predict_for_regr[var][0])
-#             for i in range(2):
-#                 collect_to_df[var].append(to_predict_for_regr[var][1])
-#             # then we fill out the other
-#             for name in to_predict_for_regr:
-#                 if name == var:
-#                     continue
-#                 for i in range(2):
-#                     collect_to_df[name].append(to_predict_for_regr[name][0])
-#                     collect_to_df[name].append(to_predict_for_regr[name][1])
-#         else:
-#             count_vars_no_regr += 1
-#     # if all vars are below the threshold - i.e. no interpolation
-#     if count_vars_no_regr == len(to_predict_for_regr):
-#         return "All vars are below the threshold - i.e. no interpolation"
-#     df_regr = pd.DataFrame(data=collect_to_df)
-#     df_regr = df_regr.drop_duplicates()
-#     return df_regr, to_predict_for_regr
 
+Interpolation calculations:
+Now to see how makeInterpolation works we will continue with our example in prepareForInterpolation where we had ended up with
+these values:
 
-# def findSlopes(df_xdata_regr=None, predictor=None):
-#     """Find slopes for all the relevant vars. Using the adaptable function f."""
-#     # we copy df_xdata, since now we add Y to the dataframe
-#     df_regr = df_xdata_regr.copy()
-#     df_regr["Y"] = df_regr[df_xdata_regr.columns].apply(f, args=(predictor,), axis=1)
-#     X = df_regr[df_xdata_regr.columns].to_numpy()
-#     Y = df_regr[["Y"]].to_numpy()
-#     model = LinearRegression().fit(X, Y)
-#     return model.coef_, df_regr
+prediction_array = [[3.5, 14, 51], [2.1, 27, 76]]
+Xarray_for_interpolation = 
+                [[3, 10, 50], [3, 10, 60], [3, 20, 50], [3, 20, 60], [4, 10, 50], [4, 10, 60], [4, 20, 50], [4, 20, 60], 
+                [2, 20, 70], [2, 20, 80], [2, 30, 70], [2, 30, 80], [3, 20, 70], [3, 20, 80], [3, 30, 70], [3, 30, 80]]
+Yall_lower_upper = [[29, 23], [31, 21], [30, 20], [29, 23], [37, 26], [32, 25], [30, 23], [30, 27]]
+Xdelta_list = [[1, 1], [10, 10], [10, 10]]; Xabove_lowbounds = [[.5, .1], [4, 7], [1, 6]]
 
+And to sum up: The task was to find prediction values for the 2 sets of features given in the prediction_array. And since our
+model do not have training points within the area of these values (the values of the 2 sets of features given in the 
+prediction_array are not representet in the training data) we will use the nearest lower and upper points instead. This is 
+the points in Xarray_for_interpolation. And for these 8x2 sets of points we have the corresponding 8x2 values in 
+Yall_lower_upper.
+Now to make the interpolation for the first feature in the 2 sets of features given in the prediction_array (i.e for 3.5 and 
+for 2.1) we can substract the first half part of Yall_lower_upper from the last half part. By doing this we find the 
+difference in Yall_lower_upper when changing the first feature from lower to upper point - i.e. from 3 to 4 and from 2 to 3 
+for the first features in the first and second entry in prediction_array, respectively. 
+This gives a Ydelta of:
+Ydelta = [[8, 3], [1, 4], [0, 3], [1, 4]], if following the interpolation of the first prediction value we see a difference 
+of 8, 1, 0 and 1 when changing (only) the first from 3 to 4. 
+We also have that X_delta = [[1, 1], [10, 10], [10, 10]], so now we are able to calc how much Y changes per each change in 
+a corresponding feature. For interpolation of first feature X_delta is 1 and 1 for first and second prediction. 
+Ydelta/X-delta then gives [[8, 3], [1, 4], [0, 3], [1, 4]]
 
-# def intepolate(df_regr=None, slope=None, to_predict=None, to_predict_for_regr=None):
-#     """Based on slopes and data, multiple var interpolation is made.
-#     Approach: we start out with the Y-value when all X-values are lowest (interpol_Y1), then we add
-#     change in Y (delta_Y) due to change in X (interpol_X - interpol_X1).
-#     The function returns the prediction of Y.
-#     Input:
-#     df_regr: dataframe with combinations of nearest lowest and nearest highest from to_predict_for_regr, incl. Y predictions.
-#     slope: array with slopes
-#     to_predict: dict with the values to predict Y
-#     to_predict_for_regr: dict with nearest lowest and nearest highest or - if predict value for var is below threshold - predict value twice.
-#     """
-#     # The first row in df is when all X-values are lowest, which we call interpol_Y1
-#     interpol_Y1 = df_regr.loc[0, ["Y"]].to_numpy()
-#     interpol_X1 = np.array([to_predict_for_regr[num][0] for num in to_predict_for_regr])
-#     # NOTE: To calc delta_Y we have to make sure that the vars in interpol_X1 and interpol_X
-#     # comes in the same order. To ensure that we iterate through 'to_predict_for_regr' in the
-#     # list comprehension for both interpol_X1 and interpol_X.
-#     interpol_X = np.array([to_predict[num] for num in to_predict_for_regr])
-#     delta_Y = np.sum(slope * (interpol_X - interpol_X1))
-#     return interpol_Y1 + delta_Y
+Now we are not going from 3 to 4, but only from 3 to 3.5. 
 
+Ynext: [[33.  23.3]
+[31.5 21.4]
+[30.  20.3]
+[29.5 23.4]]
 
-# def refineRF_PredictionByInterpolation(
-#     xdata_names=None,
-#     xdata_numpy=None,
-#     to_predict_dict=None,
-#     threshold=0.1,
-#     predictor=None,
-# ):
-#     """Coordinator function. Function that predicts Y by calling the relevant functions.
-#     Input:
-#     to_predict: dict with the values to predict Y,
-#     df_xdata: a dataframe with the train xdata
-#     threshold: threshold to pass to the function collectValuesForLinRegr
-#     """
-#     df_xdata = pd.DataFrame(data=xdata_numpy, columns=xdata_names)
-#     # First we check if all the vars are below the threshold
-#     if (
-#         makeDFforMultipleRegr(
-#             to_predict=to_predict_dict, df_xdata=df_xdata, threshold=threshold
-#         )
-#         == "All vars are below the threshold - i.e. no interpolation"
-#     ):
-#         return "All vars are below the threshold - i.e. no interpolation"
+modifies now Yall_lower_upper to:
 
-#     df_xdata_regr, to_predict_for_regr = makeDFforMultipleRegr(
-#         to_predict=to_predict_dict, df_xdata=df_xdata, threshold=threshold
-#     )
-#     slope, df_regr = findSlopes(df_xdata_regr=df_xdata_regr, predictor=predictor)
-#     predict_Y = intepolate(
-#         df_regr=df_regr,
-#         slope=slope,
-#         to_predict=to_predict_dict,
-#         to_predict_for_regr=to_predict_for_regr,
-#     )
-#     return predict_Y[0][0]
+Ynext = 
 
+For each feature we now cut the length of Yall_lower_upper by a factor of 2 by interpolate the first half of Yall_lower_upper with the second half. 
+Yall_lower_upper contains values in it's first half that differs from the second half due to the difference in the first feature. 
+So if a the first value in row one in Y's first half is 20 (where we have feature one equal to 3) and the corresponding 
+first value in row one in Y's second half is 30 (where we have feature one equal to 4) and we have the feature value 
+being 3.5 we can now make the first feature interpolation by: Ynext = Y_1st_half + (Ydelta / rowXdelta) * rowXabove. 
+And the same for the next feature by cut the length of Yall_lower_upper by a factor of 2 again. When no more features we end up with a single interpolation value
+for each individual prediction in prediction_array. E.g [29,31,30]. The values having been interpolated for all features.
 
-# """Not Used"""
-
-
-# def findSlopeSingleVar(df_xdata_regr=None, predictor=None, var=None):
-#     """Find slope for when one var has two different values, all other vars have same values.
-#      Using the adaptable function f."""
-#     # we copy df_xdata, since now we add Y to the dataframe
-#     df_regr = df_xdata_regr.copy()
-#     # Calc Y by applying predictor to x array
-#     df_regr["Y"] = df_regr[df_xdata_regr.columns].apply(f, args=(predictor,), axis=1)
-#     # Since we only find the slope for a single value of the x values we
-#     # shrink the df to only include this x
-#     df_regr["X"] = df_regr[var]
-#     # Convert to numpy
-#     X = df_regr["X"].to_numpy().reshape(-1, 1)
-#     Y = df_regr[["Y"]].to_numpy()
-#     # Make regression
-#     model = LinearRegression().fit(X, Y)
-#     return model.coef_  # return slope of single xvar
-
-
-# # # Exercise
-# # dict_test = load_object(
-# #     "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
-# # )
-# # xdata_names = dict_test["N1"]["xdata_names"]
-# # xdata_numpy = dict_test["N1"]["X"]["X_train"]
-# # to_predict = {
-# #     "glaz_area_distrib": 0.0,
-# #     "glazing_area": 0.0,
-# #     "height": 4.5,
-# #     "roof_area": 220.5,
-# #     "surf_area": 686.0,
-# #     "wall_area": 245.0,
-# # }
-# # predictor = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["predictor"]
-
-# # actual = refineRF_PredictionByInterpolation(
-# #     xdata_names=xdata_names,
-# #     xdata_numpy=xdata_numpy,
-# #     to_predict_dict=to_predict,
-# #     threshold=0.1,
-# #     predictor=predictor,
-# # )
-
-# # print(actual)
-
-
-# # dict_test = load_object(
-# #     "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
-# # )
-# # predictor = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["predictor"]
-# # xdata_names = dict_test["N1"]["xdata_names"]
-# # xdata_numpy = dict_test["N1"]["X"]["X_train"]
-
-# # # Exercise
-# # dict_test = load_object(
-# #     "/home/jesper/Work/MLDA_app/MLDA/input_data/train_test_dict.sav"
-# # )
-# # to_predict = {
-# #     "glaz_area_distrib": 0,
-# #     "glazing_area": 0,
-# #     "height": 3.5,
-# #     "roof_area": 220,
-# #     "surf_area": 686,
-# #     "wall_area": 245,
-# # }
-# # xdata_names = dict_test["N1"]["xdata_names"]
-# # xdata_numpy = dict_test["N1"]["X"]["X_train"]
-# # df_xdata = pd.DataFrame(data=xdata_numpy, columns=xdata_names)
-# # print(df_xdata["glazing_area"].value_counts())
-
-
-# # hey = keepIfDataPointsAreComprisingPercentageAboveLimit(
-# #     data_fraction_limit=0.1,
-# #     list_of_values=[0.00, 0.10, 0.25, 0.40],
-# #     percentage_of_range=0.05,
-# #     xdata=df_xdata,
-# #     var="glazing_area",
-# # )
-
-# # print(hey)
-# # actual = makeDFforMultipleRegr(to_predict=to_predict, df_xdata=df_xdata, threshold=0.1)
-
-# # print(actual)
-# # to_predict = {
-# #     "glaz_area_distrib": 0.0,
-# #     "glazing_area": 0.0,
-# #     "height": 3.5,
-# #     "roof_area": 187.0,
-# #     "surf_area": 686,
-# #     "wall_area": 400.0,
-# # }
-# # xdata_names = dict_test["N1"]["xdata_names"]
-# # xdata_numpy = dict_test["N1"]["X"]["X_train"]
-# # df_xdata = pd.DataFrame(data=xdata_numpy, columns=xdata_names)
-# # predictor = dict_test["N1"]["Y"]["heat_load"]["pred"]["forest"]["predictor"]
-
-
-# # test = collectValuesForLinRegr(
-# #     df_xdata=df_xdata,
-# #     to_predict=to_predict,
-# #     threshold=0.08,
-# #     percent_value_data_range=0.05,
-# #     data_fraction_limit=0.03,
-# # )
-
-# # predict = refineRF_PredictionByInterpolation(
-# #     xdata_names=xdata_names,
-# #     xdata_numpy=xdata_numpy,
-# #     predictor=predictor,
-# #     to_predict_dict=to_predict,
-# #     threshold=0.1,
-# # )
-
-
-# # print(to_predict)
-# # print(test)
-# # print(predict)
-
-
-# # df = pd.DataFrame(data=xdata_numpy, columns=xdata_names)
-# # df_one_row = df.loc[38, :]
-# # print(df_one_row.shape)
-
-# # df2 = pd.DataFrame(data=[[686, 245, 220.5, 3.5, 0, 0]], columns=xdata_names)
-# # df_one_row2 = df2.loc[0, :]
-# # print(df_one_row2.shape)
-
-
-# # x = np.array([686, 245, 220.5, 3.5, 0, 0])
-
-
-# # print(f(x=x, predictor=predictor))
-# # print(f(x=df_one_row, predictor=predictor))
-# # # print(df_one_row)
+"""

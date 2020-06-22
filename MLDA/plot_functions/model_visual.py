@@ -163,6 +163,7 @@ def calcZ_withRFpredictor(array=None, predictor=None, x_points=None, y_points=No
 
 
 def calcZ_withRF_interpolation(
+    interpolation=None,
     prediction_array=None,
     x_points=None,
     y_points=None,
@@ -179,6 +180,7 @@ def calcZ_withRF_interpolation(
 ):
 
     Z = randomForestPredictorWithInterpolation(
+        interpolation=interpolation,
         prediction_array=prediction_array,
         ML_dict=ML_dict,
         yvar=yvar,
@@ -197,6 +199,7 @@ def calcZ_withRF_interpolation(
 
 
 def xyZ_forSurfaceplot(
+    interpolation=True,
     num_xy_points="auto",
     ML_dict=None,
     predictor_var=None,
@@ -209,7 +212,7 @@ def xyZ_forSurfaceplot(
     min_percentage=None,
     area_frac_to_search_points_boolean_map=0.01,
     criteria_method_boolean_map="default",
-    area_frac_to_search_points=1,
+    area_frac_to_search_points=0.05,
     dict_namesvalues=None,
     reshape_transpose=True,
 ):
@@ -292,6 +295,7 @@ def xyZ_forSurfaceplot(
         # print("array", array.tolist())
         # print()
         Z = calcZ_withRF_interpolation(
+            interpolation=interpolation,
             prediction_array=array,
             x_points=x_points,
             y_points=y_points,
@@ -303,24 +307,24 @@ def xyZ_forSurfaceplot(
             criteria_method_boolean_map=criteria_method_boolean_map,
             area_frac_to_search_points=area_frac_to_search_points,
         )
-    return x_points, y_points, Z, array.tolist()
+    return x_points, y_points, Z  # array.tolist()
 
 
 # Loading data 2
-ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
-xdata_names = ML_dictEN2["xdata_names"]
-xdata = ML_dictEN2["df_data"][xdata_names]
-# print(xdata)
-names_bounds = ML_dictEN2["X_bounds"]
-names_means = ML_dictEN2["X_means"]
-# print(names_bounds)
-names_values = {
-    "wall_area": 245,
-    "roof_area": 120.5,
-    "orientation": 4,
-    "glazing_area": 0,
-    "glaz_area_distrib": 0,
-}
+# ML_dictEN2 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictEN2.sav")
+# xdata_names = ML_dictEN2["xdata_names"]
+# xdata = ML_dictEN2["df_data"][xdata_names]
+# # print(xdata)
+# names_bounds = ML_dictEN2["X_bounds"]
+# names_means = ML_dictEN2["X_means"]
+# # print(names_bounds)
+# names_values = {
+#     "wall_area": 245,
+#     "roof_area": 120.5,
+#     "orientation": 4,
+#     "glazing_area": 0,
+#     "glaz_area_distrib": 0,
+# }
 # rf_predictor = ML_dictEN2["Y"]["heat_load"]["pred"]["forest"]["predictor"]
 # print(ML_dictEN2.keys())
 
@@ -458,69 +462,15 @@ def surfacePlotly(
     fig.show()
 
 
-x_lin, y_lin, Z, array_list = xyZ_forSurfaceplot(
-    num_xy_points="auto",
-    ML_dict=ML_dictEN2,
-    predictor_var="heat_load",
-    xvar_str="roof_area",
-    yvar_str="wall_area",
-    criteria_method="default",
-    dict_namesvalues=names_values,
-)
-
-surfacePlotly(
-    x_points=x_lin,
-    y_points=y_lin,
-    Z_array=Z,
-    xvar_str="roof_area",
-    yvar_str="wall_area",
-)
-
-# print(x_lin)
-# print()
-# print(y_lin)
-# print()
-# print(Z)
-
-
-x_lin, y_lin, Z, array_list = xyZ_forSurfaceplot(
-    num_xy_points="manual",
-    num_xpoints=30,
-    num_ypoints=30,
-    ML_dict=ML_dictEN2,
-    predictor_var="heat_load",
-    xvar_str="roof_area",
-    yvar_str="wall_area",
-    criteria_method="default",
-    dict_namesvalues=names_values,
-)
-
-surfacePlotly(
-    x_points=x_lin,
-    y_points=y_lin,
-    Z_array=Z,
-    xvar_str="roof_area",
-    yvar_str="wall_area",
-)
-
-# print(x_lin)
-# print()
-# print(y_lin)
-# print()
-# print(Z)
-
-
-# x_lin, y_lin, Z = xyZ_forSurfaceplot(
-#     num_xy_points="manual",
+# x_lin, y_lin, Z, array_list = xyZ_forSurfaceplot(
+#     num_xy_points="auto",
 #     ML_dict=ML_dictEN2,
 #     predictor_var="heat_load",
-#     num_xpoints=10,
-#     num_ypoints=15,
 #     xvar_str="roof_area",
 #     yvar_str="wall_area",
+#     criteria_method="default",
 #     dict_namesvalues=names_values,
 # )
-
 
 # surfacePlotly(
 #     x_points=x_lin,
@@ -529,6 +479,67 @@ surfacePlotly(
 #     xvar_str="roof_area",
 #     yvar_str="wall_area",
 # )
+
+# print(x_lin)
+# print()
+# print(y_lin)
+# print()
+# print(Z)
+
+
+# x_lin, y_lin, Z, array_list = xyZ_forSurfaceplot(
+#     num_xy_points="manual",
+#     num_xpoints=30,
+#     num_ypoints=30,
+#     ML_dict=ML_dictEN2,
+#     predictor_var="heat_load",
+#     xvar_str="roof_area",
+#     yvar_str="wall_area",
+#     criteria_method="default",
+#     dict_namesvalues=names_values,
+# )
+
+# surfacePlotly(
+#     x_points=x_lin,
+#     y_points=y_lin,
+#     Z_array=Z,
+#     xvar_str="roof_area",
+#     yvar_str="wall_area",
+# )
+
+# print(x_lin)
+# print()
+# print(y_lin)
+# print()
+# print(Z)
+
+
+# Loading CONSTRUCTED data
+ML_dictCON1 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictCON1.sav")
+xdata_names = ML_dictCON1["xdata_names"]
+xdata = ML_dictCON1["df_data"][xdata_names]
+# print(xdata)
+names_bounds = ML_dictCON1["X_bounds"]
+names_means = ML_dictCON1["X_means"]
+print(names_bounds)
+
+names_values = {"x0": 3, "x1": 20.5, "x2": 70}
+
+
+x_lin, y_lin, Z = xyZ_forSurfaceplot(
+    interpolation=False,
+    num_xy_points="manual",
+    ML_dict=ML_dictCON1,
+    predictor_var="Y",
+    num_xpoints=20,
+    num_ypoints=25,
+    xvar_str="x0",
+    yvar_str="x1",
+    dict_namesvalues=names_values,
+)
+
+
+surfacePlotly(x_points=x_lin, y_points=y_lin, Z_array=Z, xvar_str="x0", yvar_str="x1")
 
 
 """Creating animation plot"""
@@ -1021,27 +1032,39 @@ def findVarsForPlot(
 """Feature Importance"""
 
 
+def ifNotIterablePutInList(item):
+    try:
+        # Is it possible to iterate?
+        _ = (e for e in item)
+    except TypeError:
+        # If not make a list with the item
+        item = [item]
+    return item
+
+
 def showFeatureImportanceForModels(ML_dict=None):
     ydata_names = ML_dict["ydata_names"].to_list()
     nrows, ncols = math.ceil(len(ydata_names) / 2), len(ydata_names)
     fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(14, 7), sharey=True)
+    # Check if axs is iterable else make it by adding it to a list
+    axs = ifNotIterablePutInList(axs)
     df_sorted = [
         ML_dict["Y"][y_name]["pred"]["forest"]["df_feat_imp"] for y_name in ydata_names
     ]
+
     for ydata_name, df, ax in zip(ydata_names, df_sorted, axs):
-        #     print('df.columns', df.columns, len(df.columns))
-        #     print('df.index', df.index, len(df.index))
-        #     print('df', df)
         sns.barplot(y=df.columns[0], x=df.index, data=df, ax=ax)
         ax.tick_params(axis="both", colors="b", labelsize=9)
         for item in ax.get_xticklabels():
             item.set_rotation(45)
-    # fig, axs = plt.subplots(figsize=(10,7))
-
-    # print(len(df_sorted[0].columns), df_sorted[0])
-    # sns.barplot(y=df_sorted[0].columns, x=df_sorted[0].index, data=df_sorted[0], ax=axs)
     fig.suptitle("Feature Importance", fontsize=25, color="b")
-    fig.show()
+    plt.show()
+
+
+# ML_dictEN2 = load_object("ML_dictEN2.sav")
+# ML_dictCON1 = load_object("/home/jesper/Work/MLDA_app/MLDA/jupyter_ML/ML_dictCON1.sav")
+# showFeatureImportanceForModels(ML_dict=ML_dictEN2)
+# showFeatureImportanceForModels(ML_dict=ML_dictCON1)
 
 
 """END Feature Importance"""
@@ -1061,6 +1084,7 @@ def showResidualsForModels(ML_dict=None):
     ncols = len(model_names)
     for yname in ydata_names:
         fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(16, 12), sharey=True)
+        axs = ifNotIterablePutInList(axs)
         for ax, model in zip(axs, model_names):
             predictor = ML_dict["Y"][yname]["pred"][model]["predictor"]
             vis_resid = ResidualsPlot(ax=ax, model=predictor)
@@ -1089,9 +1113,10 @@ def showLearningCurveForModels(ML_dict=None):
     ynames = ML_dict["ydata_names"]
     models = ML_dict["models"]
     ncols = len(models)
-    model_labels = [key for key in ML_dict["Y"]["heat_load"]["pred"]]
+    # model_labels = [key for key in ML_dict["Y"]["heat_load"]["pred"]]
     for yname in ynames:
         fig, axs = plt.subplots(nrows=1, ncols=ncols, sharey=True, figsize=(16, 9))
+        axs = ifNotIterablePutInList(axs)
         model_labels = [label for label in ML_dict["Y"][yname]["pred"]]
         for model, model_label, ax in zip(models, model_labels, axs):
             Ytrain = ML_dict["Y"][yname]["actual"]["train"]
